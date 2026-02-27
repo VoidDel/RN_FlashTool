@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STM32 固件烧录工具 v1.0</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-title .icon {
+            font-size: 1.8rem;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .file-input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .file-input-group .form-control {
+            flex: 1;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #00b09b, #96c93d);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            color: white;
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-block {
+            display: block;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .button-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .progress-container {
+            margin: 20px 0;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #f0f0f0;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 15px;
+            transition: width 0.3s ease;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        .log-container {
+            height: 300px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #495057;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-left: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .log-entry:hover {
+            background: #e9ecef;
+            border-left-color: #667eea;
+            padding-left: 10px;
+        }
+
+        .log-timestamp {
+            color: #6c757d;
+            font-weight: bold;
+        }
+
+        .log-success {
+            border-left-color: #28a745;
+        }
+
+        .log-error {
+            border-left-color: #dc3545;
+        }
+
+        .log-warning {
+            border-left-color: #ffc107;
+        }
+
+        .status-bar {
+            background: white;
+            padding: 10px 20px;
+            margin-top: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-text {
+            font-weight: 500;
+        }
+
+        .alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            max-width: 400px;
+            display: none;
+            z-index: 1000;
+        }
+
+        .alert.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .alert-warning {
+            border-left: 4px solid #ffc107;
+        }
+
+        .alert-info {
+            border-left: 4px solid #17a2b8;
+        }
+
+        .alert-danger {
+            border-left: 4px solid #dc3545;
+        }
+
+        .alert-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .container {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔥 STM32 固件烧录工具</h1>
+            <p>支持多种编程器和芯片型号的固件烧录工具</p>
+        </div>
+
+        <div class="main-content">
+            <!-- 左侧：配置区域 -->
+            <div class="left-panel">
+                <!-- 固件配置 -->
+                <div class="card">
+                    <div class="card-title">
+                        <span class="icon">📦</span>
+                        固件配置
+                    </div>
+
+                    <div class="form-group">
+                        <label>固件文件</label>
+                        <div class="file-input-group">
+                            <input type="text" id="firmwarePath" class="form-control"
+                                   placeholder="请选择固件文件..." readonly>
+                            <button class="btn btn-primary" onclick="selectFirmware()">浏览</button>
+                        </div>
+                    </div>
+
+                    <div class="two-column">
+                        <div class="form-group">
+                            <label>格式</label>
+                            <select id="firmwareFormat" class="form-control">
+                                <option value="elf">ELF</option>
+                                <option value="bin">BIN</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>烧录地址</label>
+                            <input type="text" id="flashAddress" class="form-control"
+                                   value="0x08000000" placeholder="例如: 0x08000000">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>读取大小</label>
+                        <input type="text" id="readSize" class="form-control"
+                               value="0x10000" placeholder="例如: 0x10000 (64KB)">
+                        <div class="help-text">16进制格式，如64KB=0x10000</div>
+                    </div>
+                </div>
+
+                <!-- 目标配置 -->
+                <div class="card">
+                    <div class="card-title">
+                        <span class="icon">🎯</span>
+                        目标配置
+                    </div>
+
+                    <div class="form-group">
+                        <label>编程器</label>
+                        <select id="programmer" class="form-control">
+                            <option value="stlink">ST-Link</option>
+                            <option value="jlink">J-Link</option>
+                            <option value="cmsis-dap" selected>CMSIS-DAP</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>目标芯片</label>
+                        <input type="text" id="targetChip" class="form-control"
+                               list="chipList" placeholder="选择或输入芯片型号">
+                        <datalist id="chipList"></datalist>
+                        <div class="help-text">可从下拉列表选择或手动输入</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>配置文件</label>
+                        <div id="targetConfig" class="form-control" style="background: #f8f9fa;">
+                            待选择芯片...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 操作按钮 -->
+                <div class="card">
+                    <div class="card-title">
+                        <span class="icon">⚡</span>
+                        操作
+                    </div>
+
+                    <div class="button-grid">
+                        <button class="btn btn-success btn-block" onclick="flashFirmware()">
+                            🔥 烧录固件
+                        </button>
+                        <button class="btn btn-info btn-block" onclick="verifyFirmware()">
+                            ✓ 验证固件
+                        </button>
+                        <button class="btn btn-warning btn-block" onclick="readFirmware()">
+                            📥 读取固件
+                        </button>
+                        <button class="btn btn-secondary btn-block" onclick="resetDevice()">
+                            🔄 复位设备
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：日志区域 -->
+            <div class="right-panel">
+                <div class="card">
+                    <div class="card-title">
+                        <span class="icon">📝</span>
+                        操作日志
+                    </div>
+
+                    <div class="log-container" id="logContainer">
+                        <div class="log-entry log-info">
+                            <span class="log-timestamp">[系统]</span> 等待操作开始...
+                        </div>
+                    </div>
+
+                    <button class="btn btn-secondary btn-block" onclick="clearLog()">
+                        清除日志
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 进度条 -->
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar">
+                <div class="progress-bar-fill" style="width: 100%"></div>
+            </div>
+        </div>
+
+        <!-- 状态栏 -->
+        <div class="status-bar">
+            <span class="status-text" id="statusText">就绪</span>
+            <span id="openocdStatus">正在检查OpenOCD...</span>
+        </div>
+    </div>
+
+    <!-- 警告提示 -->
+    <div class="alert alert-warning" id="alertBox">
+        <div class="alert-title" id="alertTitle">警告</div>
+        <div id="alertMessage"></div>
+    </div>
+
+    <script>
+        // 初始化变量
+        let isOperating = false;
+        let chipList = [];
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initializeApp();
+        });
+
+        // 初始化应用
+        async function initializeApp() {
+            try {
+                // 加载芯片列表
+                chipList = await window.electronAPI.getChipList();
+                populateChipList();
+
+                // 设置OpenOCD状态监听
+                window.electronAPI.onOpenOCDNotFound(() => {
+                    document.getElementById('openocdStatus').textContent = '未找到OpenOCD';
+                    showAlert('warning', 'OpenOCD未找到',
+                        '请确保：\n1. 已安装OpenOCD并添加到系统PATH\n' +
+                        '2. 或将OpenOCD可执行文件放在openocd/bin/目录下');
+                    disableAllButtons(true);
+                });
+
+                window.electronAPI.onOpenOCDFound((path) => {
+                    document.getElementById('openocdStatus').textContent = `OpenOCD: ${path}`;
+                    updateStatus('OpenOCD就绪');
+                    disableAllButtons(false);
+                });
+
+                // 绑定事件监听器
+                document.getElementById('targetChip').addEventListener('input', updateTargetConfig);
+                document.getElementById('firmwarePath').addEventListener('input', updateFormatFromPath);
+
+            } catch (error) {
+                addLog('error', `初始化失败: ${error.message}`);
+            }
+        }
+
+        // 填充芯片列表
+        function populateChipList() {
+            const dataList = document.getElementById('chipList');
+            chipList.forEach(chip => {
+                const option = document.createElement('option');
+                option.value = chip.display;
+                option.textContent = chip.display;
+                dataList.appendChild(option);
+            });
+        }
+
+        // 更新目标配置
+        function updateTargetConfig() {
+            const chipValue = document.getElementById('targetChip').value.trim();
+            const selectedChip = chipList.find(chip =>
+                chip.display === chipValue || chip.value === chipValue
+            );
+
+            if (selectedChip) {
+                const config = `target/${selectedChip.value}.cfg`;
+                document.getElementById('targetConfig').textContent = config;
+            } else if (chipValue) {
+                document.getElementById('targetConfig').textContent = `target/${chipValue}.cfg (自定义)`;
+            } else {
+                document.getElementById('targetConfig').textContent = '待选择芯片...';
+            }
+        }
+
+        // 根据文件路径更新格式
+        function updateFormatFromPath() {
+            const path = document.getElementById('firmwarePath').value.toLowerCase();
+            if (path.endsWith('.bin')) {
+                document.getElementById('firmwareFormat').value = 'bin';
+            } else if (path.endsWith('.elf')) {
+                document.getElementById('firmwareFormat').value = 'elf';
+            }
+        }
+
+        // 选择固件文件
+        async function selectFirmware() {
+            try {
+                const result = await window.electronAPI.selectFirmware();
+                if (result && !result.canceled) {
+                    document.getElementById('firmwarePath').value = result.filePaths[0];
+                    updateFormatFromPath();
+                    addLog('info', `选择固件文件: ${result.filePaths[0]}`);
+                }
+            } catch (error) {
+                addLog('error', `选择文件失败: ${error.message}`);
+            }
+        }
+
+        // 烧录固件
+        async function flashFirmware() {
+            if (isOperating) return;
+
+            const firmwarePath = document.getElementById('firmwarePath').value.trim();
+            if (!firmwarePath) {
+                showAlert('warning', '警告', '请先选择固件文件！');
+                return;
+            }
+
+            const params = {
+                firmwarePath,
+                format: document.getElementById('firmwareFormat').value,
+                address: document.getElementById('flashAddress').value,
+                interface: document.getElementById('programmer').value,
+                targetChip: getTargetChip()
+            };
+
+            const confirmed = await showConfirm('确认烧录',
+                `确定要将 ${getFileName(firmwarePath)} 烧录到 ${params.targetChip} 吗？`);
+
+            if (confirmed) {
+                await performOperation('flash', '烧录', () =>
+                    window.electronAPI.flashFirmware(params));
+            }
+        }
+
+        // 验证固件
+        async function verifyFirmware() {
+            if (isOperating) return;
+
+            const firmwarePath = document.getElementById('firmwarePath').value.trim();
+            if (!firmwarePath) {
+                showAlert('warning', '警告', '请先选择固件文件！');
+                return;
+            }
+
+            const params = {
+                firmwarePath,
+                format: document.getElementById('firmwareFormat').value,
+                address: document.getElementById('flashAddress').value,
+                interface: document.getElementById('programmer').value,
+                targetChip: getTargetChip()
+            };
+
+            await performOperation('verify', '验证', () =>
+                window.electronAPI.verifyFirmware(params));
+        }
+
+        // 读取固件
+        async function readFirmware() {
+            if (isOperating) return;
+
+            const targetChip = getTargetChip();
+            const defaultName = `read_${targetChip}.bin`;
+
+            try {
+                const result = await window.electronAPI.saveFirmware(defaultName);
+                if (result && !result.canceled) {
+                    const params = {
+                        outputPath: result.filePath,
+                        address: document.getElementById('flashAddress').value,
+                        size: document.getElementById('readSize').value,
+                        interface: document.getElementById('programmer').value,
+                        targetChip
+                    };
+
+                    await performOperation('read', '读取', () =>
+                        window.electronAPI.readFirmware(params));
+                }
+            } catch (error) {
+                addLog('error', `保存文件失败: ${error.message}`);
+            }
+        }
+
+        // 复位设备
+        async function resetDevice() {
+            if (isOperating) return;
+
+            const params = {
+                interface: document.getElementById('programmer').value,
+                targetChip: getTargetChip()
+            };
+
+            const confirmed = await showConfirm('确认复位',
+                `确定要复位 ${params.targetChip} 吗？`);
+
+            if (confirmed) {
+                await performOperation('reset', '复位', () =>
+                    window.electronAPI.resetDevice(params));
+            }
+        }
+
+        // 执行操作
+        async function performOperation(type, description, operation) {
+            isOperating = true;
+            disableAllButtons(true);
+            showProgress(true);
+            updateStatus(`正在${description}...`);
+
+            addLog('info', `[系统] 开始${description}操作`);
+
+            try {
+                const result = await operation();
+
+                if (result.success) {
+                    addLog('success', `${description}成功完成！`);
+                    showAlert('info', '操作完成', `${description}成功完成！`);
+                } else {
+                    addLog('error', `${description}失败！\n${result.output}`);
+                    showAlert('danger', '操作失败', `${description}失败！\n请查看日志了解详情。`);
+                }
+            } catch (error) {
+                addLog('error', `${description}异常: ${error.message}`);
+                showAlert('danger', '操作异常', `${description}过程中发生异常：${error.message}`);
+            } finally {
+                isOperating = false;
+                disableAllButtons(false);
+                showProgress(false);
+                updateStatus('就绪');
+            }
+        }
+
+        // 获取目标芯片
+        function getTargetChip() {
+            const chipValue = document.getElementById('targetChip').value.trim();
+            const selectedChip = chipList.find(chip =>
+                chip.display === chipValue || chip.value === chipValue
+            );
+            return selectedChip ? selectedChip.value : chipValue;
+        }
+
+        // 辅助函数
+        function disableAllButtons(disabled) {
+            const buttons = document.querySelectorAll('button:not([disabled])');
+            buttons.forEach(btn => btn.disabled = disabled);
+        }
+
+        function showProgress(show) {
+            document.getElementById('progressContainer').style.display = show ? 'block' : 'none';
+        }
+
+        function updateStatus(text) {
+            document.getElementById('statusText').textContent = text;
+        }
+
+        function addLog(type, message) {
+            const logContainer = document.getElementById('logContainer');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+
+            const timestamp = new Date().toLocaleTimeString();
+            entry.innerHTML = `<span class="log-timestamp">[${timestamp}]</span> ${message}`;
+
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function clearLog() {
+            const logContainer = document.getElementById('logContainer');
+            logContainer.innerHTML =
+                '<div class="log-entry log-info"><span class="log-timestamp">[系统]</span> 日志已清除</div>';
+        }
+
+        function showAlert(type, title, message) {
+            const alertBox = document.getElementById('alertBox');
+            const alertTitle = document.getElementById('alertTitle');
+            const alertMessage = document.getElementById('alertMessage');
+
+            alertBox.className = `alert alert-${type} show`;
+            alertTitle.textContent = title;
+            alertMessage.textContent = message;
+
+            setTimeout(() => {
+                alertBox.classList.remove('show');
+            }, 5000);
+        }
+
+        async function showConfirm(title, message) {
+            const result = await window.electronAPI.showMessageBox({
+                type: 'question',
+                buttons: ['确定', '取消'],
+                defaultId: 0,
+                title,
+                message
+            });
+            return result === 0; // 0表示确定
+        }
+
+        function getFileName(path) {
+            return path.split(/[/\\]/).pop();
+        }
+    </script>
+</body>
+</html>
