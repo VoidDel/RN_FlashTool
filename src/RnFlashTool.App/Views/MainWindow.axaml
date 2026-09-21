@@ -27,24 +27,7 @@
                     <TextBlock Classes="hint" Text="OpenOCD 驱动 · 芯片列表来自 chips/ 目录的 YAML 配置" />
                 </StackPanel>
 
-                <!-- OpenOCD 版本放在顶栏当工具条，给左边的配置区让出高度 -->
                 <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
-                        <TextBlock Classes="label" Text="OpenOCD" Margin="0,0,2,0" />
-                        <ComboBox Width="230"
-                                  ItemsSource="{Binding OpenOcdInstallations}"
-                                  SelectedItem="{Binding SelectedOpenOcd}"
-                                  IsEnabled="{Binding IsIdle}"
-                                  ToolTip.Tip="{Binding OpenOcdSummary}">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="models:OpenOcdInstallation">
-                                    <TextBlock Text="{Binding DisplayName}" />
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-                        <Button Content="管理…" Command="{Binding ManageOpenOcdCommand}" />
-                    </StackPanel>
-
                     <Button Classes="notice"
                             HorizontalAlignment="Right"
                             MaxWidth="380"
@@ -73,17 +56,17 @@
                            FontSize="{DynamicResource FontSizeSmall}"
                            TextTrimming="CharacterEllipsis" />
 
-                <!-- 状态栏右侧：程序版本与 OpenOCD 版本，点击分别打开更新 / 版本管理 -->
+                <!-- 状态栏右侧：OpenOCD 版本与程序版本，点击分别打开版本管理 / 更新 -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="16,0,0,0">
-                    <Button Classes="statusbar"
-                            Content="{Binding AppVersionText}"
-                            Command="{Binding ShowAppUpdateCommand}"
-                            ToolTip.Tip="点击检查程序更新" />
-                    <TextBlock Classes="hint" Text="·" Margin="4,0" />
                     <Button Classes="statusbar"
                             Content="{Binding OpenOcdStatusText}"
                             Command="{Binding ManageOpenOcdCommand}"
                             ToolTip.Tip="{Binding OpenOcdSummary}" />
+                    <TextBlock Classes="hint" Text="·" Margin="4,0" />
+                    <Button Classes="statusbar"
+                            Content="{Binding AppVersionText}"
+                            Command="{Binding ShowAppUpdateCommand}"
+                            ToolTip.Tip="点击检查程序更新" />
                 </StackPanel>
             </Grid>
         </Border>
