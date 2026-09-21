@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    branches: [master]
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: 构建校验
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: 还原依赖
+        run: dotnet restore Stm32Flash.sln
+
+      - name: 构建
+        run: dotnet build Stm32Flash.sln -c Release --no-restore
+
+      # 目标框架是 net10.0，三个平台都应该能发布；任一失败说明引入了平台相关代码
+      - name: 交叉发布检查
+        run: |
+          for rid in win-x64 linux-x64 osx-arm64; do
+            echo "::group::$rid"
+            dotnet publish src/Stm32Flash.App -c Release -r "$rid" \
+              --self-contained false -o "/tmp/check-$rid"
+            echo "::endgroup::"
+          done
+
+      # 芯片列表是 YAML 驱动的，漏拷到输出目录会导致程序启动后一个芯片都没有
+      - name: 校验芯片配置已输出
+        run: |
+          count=$(ls /tmp/check-linux-x64/chips/*.yaml 2>/dev/null | wc -l)
+          echo "输出目录中的芯片配置: $count 个"
+          if [ "$count" -eq 0 ]; then
+            echo "::error::chips/ 未被复制到发布输出，程序将没有任何可选芯片"
+            exit 1
+          fi
