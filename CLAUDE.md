@@ -10,6 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 支持 ST-Link、J-Link、CMSIS-DAP 三种编程器接口
 - 受支持芯片由 `chips/` 目录下的 YAML 文件定义，增删芯片无需改代码、无需重新编译
 - OpenOCD 可在线升级与多版本切换（来源为 xPack OpenOCD 发行版）
+- 程序自身可检查更新、下载并自动替换重启
 
 ## Build & Run
 
@@ -43,6 +44,9 @@ dotnet publish src/Stm32Flash.App -c Release -r osx-arm64 --self-contained false
 - `ChipCatalogService` — 扫描并解析 `chips/*.yaml`，提供按 id / 名称 / 前缀的解析
 - `OpenOcdRunner` — 生成临时 cfg、启动 openocd、**流式**回报输出、支持取消与超时
 - `OpenOcdVersionService` — 发现本机 OpenOCD、拉取 xPack 发行版、下载安装、卸载
+- `GitHubClient` — 访问 GitHub Releases 的共用客户端，下载加速前缀在此统一生效
+- `ArchiveExtractor` — zip / tar.gz 解压与 Unix 执行位修正
+- `AppUpdateService` — 程序自升级：检查、下载、生成并启动外部替换脚本
 - `SettingsService` — 用户选择持久化到 `settings.json`
 - `DialogService` — 文件对话框（Avalonia `StorageProvider`）与自绘消息框，**全部异步**
 
@@ -84,5 +88,10 @@ dotnet publish src/Stm32Flash.App -c Release -r osx-arm64 --self-contained false
   但 `{StaticResource}` 的类型转换是运行期的，`ColumnDefinitions` 这类属性必须写字面量
 - Avalonia 的 `ComboBox` 不像 WPF 那样支持 `IsEditable`；目标芯片用的是普通下拉框，
   若将来需要"可选可输入"，得换成 `AutoCompleteBox`
+- 自升级靠外部脚本完成：运行中的可执行文件无法覆盖自己，
+  `AppUpdateService` 生成 PowerShell / sh 脚本等本进程退出后再覆盖并重启。
+  PowerShell 脚本里有大量字面量花括号，C# 侧必须用 `$$"""` 原始字符串（插值洞写作 `{{ }}`）
+- 取当前版本号用 `typeof(AppUpdateService).Assembly` 而非 `Assembly.GetEntryAssembly()`，
+  后者在被别的宿主加载时会取到宿主的版本
 - 内置 OpenOCD 的版本号形如 `0.12.0+dev`，解析不出 xPack 打包修订号；
   `OpenOcdVersion.IsUpgrade()` 对开发版只比较 主.次.补丁，避免一直误报有新版本

@@ -13,9 +13,13 @@ public sealed class MainViewModel : ObservableObject
 
     private readonly IOpenOcdRunner _runner;
     private readonly IOpenOcdVersionService _versions;
+    private readonly IAppUpdateService _appUpdates;
     private readonly IChipCatalogService _catalog;
     private readonly ISettingsService _settings;
     private readonly IDialogService _dialogs;
+
+    /// <summary>触发程序退出，由宿主传入，供“更新后重启”使用。</summary>
+    private readonly Action _requestShutdown;
 
     private readonly StringBuilder _log = new();
     private readonly IProgress<string> _logProgress;
@@ -32,6 +36,8 @@ public sealed class MainViewModel : ObservableObject
     private ChipDefinition? _selectedChip;
     private OpenOcdInstallation? _selectedOpenOcd;
     private string _updateNotice = string.Empty;
+    private string _appUpdateNotice = string.Empty;
+    private AppRelease? _appUpdate;
     private string _statusMessage = "就绪";
     private bool _isBusy;
     private string _logText = string.Empty;
@@ -39,15 +45,19 @@ public sealed class MainViewModel : ObservableObject
     public MainViewModel(
         IOpenOcdRunner runner,
         IOpenOcdVersionService versions,
+        IAppUpdateService appUpdates,
         IChipCatalogService catalog,
         ISettingsService settings,
-        IDialogService dialogs)
+        IDialogService dialogs,
+        Action requestShutdown)
     {
         _runner = runner;
         _versions = versions;
+        _appUpdates = appUpdates;
         _catalog = catalog;
         _settings = settings;
         _dialogs = dialogs;
+        _requestShutdown = requestShutdown;
 
         // 在 UI 线程构造，Progress 会把回调切回 UI 线程，OpenOCD 输出可以直接写进日志。
         _logProgress = new Progress<string>(AppendRaw);
@@ -61,6 +71,7 @@ public sealed class MainViewModel : ObservableObject
         ClearLogCommand = new RelayCommand(ClearLog);
         SaveLogCommand = new AsyncRelayCommand(SaveLogAsync, () => _log.Length > 0, ReportError);
         ManageOpenOcdCommand = new AsyncRelayCommand(ManageOpenOcdAsync, () => !IsBusy, ReportError);
+        ShowAppUpdateCommand = new AsyncRelayCommand(ShowAppUpdateAsync, () => !IsBusy, ReportError);
         ReloadChipsCommand = new RelayCommand(ReloadChips, () => !IsBusy);
         OpenChipFolderCommand = new RelayCommand(() => _dialogs.OpenFolder(_catalog.UserDirectory));
     }
@@ -90,6 +101,8 @@ public sealed class MainViewModel : ObservableObject
     public AsyncRelayCommand SaveLogCommand { get; }
 
     public AsyncRelayCommand ManageOpenOcdCommand { get; }
+
+    public AsyncRelayCommand ShowAppUpdateCommand { get; }
 
     public RelayCommand ReloadChipsCommand { get; }
 
@@ -179,6 +192,9 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>状态栏上显示的程序版本，点击即可打开更新窗口。</summary>
+    public string AppVersionText => $"v{_appUpdates.CurrentVersion}";
+
     /// <summary>状态栏上显示的版本号，点击即可打开版本管理。</summary>
     public string OpenOcdStatusText => SelectedOpenOcd is { } installation
         ? $"OpenOCD {installation.DisplayName}"
@@ -203,6 +219,21 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public bool HasUpdateNotice => !string.IsNullOrEmpty(UpdateNotice);
+
+    /// <summary>程序自身有新版本时显示的提示，无更新时为空。</summary>
+    public string AppUpdateNotice
+    {
+        get => _appUpdateNotice;
+        private set
+        {
+            if (SetProperty(ref _appUpdateNotice, value))
+            {
+                OnPropertyChanged(nameof(HasAppUpdateNotice));
+            }
+        }
+    }
+
+    public bool HasAppUpdateNotice => !string.IsNullOrEmpty(AppUpdateNotice);
 
     public string StatusMessage
     {
@@ -249,6 +280,7 @@ public sealed class MainViewModel : ObservableObject
         }
 
         await CheckForUpdatesIfDueAsync().ConfigureAwait(true);
+        await CheckForAppUpdateIfDueAsync().ConfigureAwait(true);
     }
 
     /// <summary>窗口关闭时调用：中止进行中的操作并保存设置。</summary>
@@ -478,6 +510,53 @@ public sealed class MainViewModel : ObservableObject
         await RefreshOpenOcdAsync().ConfigureAwait(true);
     }
 
+    private async Task ShowAppUpdateAsync()
+    {
+        var viewModel = new AppUpdateViewModel(_appUpdates, _settings, _dialogs, _appUpdate, _requestShutdown);
+
+        await _dialogs.ShowAppUpdateAsync(viewModel).ConfigureAwait(true);
+
+        // 窗口里可能刚装完或刚确认已是最新，提示条跟着消掉。
+        if (!_appUpdates.CanSelfUpdate || _appUpdate is null)
+        {
+            return;
+        }
+
+        AppUpdateNotice = string.Empty;
+    }
+
+    /// <summary>每天最多在后台检查一次程序更新，失败时静默处理。</summary>
+    private async Task CheckForAppUpdateIfDueAsync()
+    {
+        if (!_settings.Current.AutoCheckAppUpdate)
+        {
+            return;
+        }
+
+        var last = _settings.Current.LastAppUpdateCheck;
+        if (last is not null && DateTimeOffset.Now - last.Value < TimeSpan.FromDays(1))
+        {
+            return;
+        }
+
+        try
+        {
+            _appUpdate = await _appUpdates.CheckForUpdateAsync().ConfigureAwait(true);
+            _settings.Current.LastAppUpdateCheck = DateTimeOffset.Now;
+            _settings.Save();
+
+            if (_appUpdate is not null)
+            {
+                AppUpdateNotice = $"程序 {_appUpdate.Version} 可用，点击查看";
+                AppendSystem($"检测到程序新版本 {_appUpdate.Version}（当前 {_appUpdates.CurrentVersion}）");
+            }
+        }
+        catch (Exception exception)
+        {
+            AppendSystem($"检查程序更新失败（可忽略）: {exception.Message}");
+        }
+    }
+
     private void OnOpenOcdActivated(OpenOcdInstallation installation)
     {
         AppendSystem($"已切换 OpenOCD: {installation.DisplayName} → {installation.ExecutablePath}");
@@ -606,6 +685,7 @@ public sealed class MainViewModel : ObservableObject
         ResetCommand.RaiseCanExecuteChanged();
         CancelCommand.RaiseCanExecuteChanged();
         ManageOpenOcdCommand.RaiseCanExecuteChanged();
+        ShowAppUpdateCommand.RaiseCanExecuteChanged();
         ReloadChipsCommand.RaiseCanExecuteChanged();
     }
 }

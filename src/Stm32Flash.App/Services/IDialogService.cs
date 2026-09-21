@@ -29,6 +29,12 @@ public interface IDialogService
     /// <summary>在系统文件管理器中打开一个目录，目录不存在时会先创建。</summary>
     void OpenFolder(string path);
 
+    /// <summary>用系统默认浏览器打开一个网址。</summary>
+    void OpenUrl(string url);
+
     /// <summary>打开 OpenOCD 版本管理窗口。</summary>
     Task ShowOpenOcdManagerAsync(object viewModel);
+
+    /// <summary>打开程序更新窗口。</summary>
+    Task ShowAppUpdateAsync(object viewModel);
 }
