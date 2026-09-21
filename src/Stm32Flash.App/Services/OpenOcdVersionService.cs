@@ -1,8 +1,4 @@
 using System.Diagnostics;
-using System.Formats.Tar;
-using System.IO.Compression;
-using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Stm32Flash.App.Models;
@@ -16,21 +12,18 @@ namespace Stm32Flash.App.Services;
 /// </summary>
 public sealed class OpenOcdVersionService : IOpenOcdVersionService
 {
-    private const string ReleasesApi =
-        "https://api.github.com/repos/xpack-dev-tools/openocd-xpack/releases?per_page=30";
+    private const string Repository = "xpack-dev-tools/openocd-xpack";
 
     /// <summary>可执行文件名随平台而变。</summary>
     private static readonly string ExecutableName = OperatingSystem.IsWindows() ? "openocd.exe" : "openocd";
 
     private readonly ISettingsService _settings;
-    private readonly HttpClient _http;
+    private readonly GitHubClient _github;
 
-    public OpenOcdVersionService(ISettingsService settings)
+    public OpenOcdVersionService(ISettingsService settings, GitHubClient github)
     {
         _settings = settings;
-        _http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
-        _http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("Stm32FlashTool", "2.0"));
-        _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+        _github = github;
     }
 
     public string InstallRoot => AppPaths.OpenOcdInstallRoot;
@@ -103,7 +96,7 @@ public sealed class OpenOcdVersionService : IOpenOcdVersionService
 
         return [.. withVersions
             .OrderBy(item => item.Source)
-            .ThenByDescending(item => item.Version, Comparer<string?>.Create(OpenOcdVersion.Compare))];
+            .ThenByDescending(item => item.Version, Comparer<string?>.Create(LooseVersion.Compare))];
     }
 
     public async Task<string?> QueryVersionAsync(string executablePath, CancellationToken cancellationToken = default)
@@ -143,7 +136,7 @@ public sealed class OpenOcdVersionService : IOpenOcdVersionService
             // openocd 把版本信息写在 stderr 上，两边都看一下。
             var stdout = await stdoutTask.ConfigureAwait(false);
             var stderr = await stderrTask.ConfigureAwait(false);
-            return OpenOcdVersion.ParseFromVersionOutput(string.IsNullOrWhiteSpace(stdout) ? stderr : stdout);
+            return LooseVersion.ParseFromVersionOutput(string.IsNullOrWhiteSpace(stdout) ? stderr : stdout);
         }
         catch (Exception)
         {
@@ -153,7 +146,7 @@ public sealed class OpenOcdVersionService : IOpenOcdVersionService
 
     public async Task<IReadOnlyList<OpenOcdRelease>> FetchReleasesAsync(CancellationToken cancellationToken = default)
     {
-        var json = await _http.GetStringAsync(ReleasesApi, cancellationToken).ConfigureAwait(false);
+        var json = await _github.GetReleasesJsonAsync(Repository, 30, cancellationToken).ConfigureAwait(false);
 
         using var document = JsonDocument.Parse(json);
         var suffix = GetAssetSuffix();
@@ -177,7 +170,7 @@ public sealed class OpenOcdVersionService : IOpenOcdVersionService
             }
 
             var tag = element.TryGetProperty("tag_name", out var tagName) ? tagName.GetString() ?? "" : "";
-            var version = OpenOcdVersion.Parse(tag) ?? tag;
+            var version = LooseVersion.Parse(tag) ?? tag;
             if (string.IsNullOrWhiteSpace(version))
             {
                 continue;
@@ -198,7 +191,7 @@ public sealed class OpenOcdVersionService : IOpenOcdVersionService
 
         return [.. releases
             .Where(release => !string.IsNullOrWhiteSpace(release.DownloadUrl))
-            .OrderByDescending(release => release.Version, Comparer<string>.Create(OpenOcdVersion.Compare))];
+            .OrderByDescending(release => release.Version, Comparer<string>.Create(LooseVersion.Compare))];
     }
 
     public async Task<OpenOcdInstallation> InstallAsync(
@@ -214,7 +207,7 @@ public sealed class OpenOcdVersionService : IOpenOcdVersionService
         try
         {
             progress.Report(new InstallProgress($"正在下载 {release.AssetName} …", 0));
-            await DownloadAsync(ApplyMirror(release.DownloadUrl), archivePath, release.SizeBytes, progress, cancellationToken)
+            await _github.DownloadAsync(release.DownloadUrl, archivePath, release.SizeBytes, progress, cancellationToken)
                 .ConfigureAwait(false);
 
             progress.Report(new InstallProgress("正在解压 …", null));
@@ -224,12 +217,12 @@ public sealed class OpenOcdVersionService : IOpenOcdVersionService
             }
 
             Directory.CreateDirectory(targetDirectory);
-            await ExtractAsync(archivePath, targetDirectory, cancellationToken).ConfigureAwait(false);
+            await ArchiveExtractor.ExtractAsync(archivePath, targetDirectory, cancellationToken).ConfigureAwait(false);
 
             var executable = FindExecutable(targetDirectory)
                 ?? throw new InvalidOperationException($"压缩包里没有找到 {ExecutableName}");
 
-            EnsureExecutable(executable);
+            ArchiveExtractor.EnsureExecutable(executable);
 
             progress.Report(new InstallProgress($"已安装 {release.Version}", 100));
 
@@ -267,7 +260,7 @@ public sealed class OpenOcdVersionService : IOpenOcdVersionService
             return null;
         }
 
-        return OpenOcdVersion.IsUpgrade(latest.Version, current, OpenOcdVersion.IsDevBuild(current)) ? latest : null;
+        return LooseVersion.IsUpgrade(latest.Version, current, LooseVersion.IsDevBuild(current)) ? latest : null;
     }
 
     public async Task<OpenOcdInstallation?> CreateCustomAsync(
@@ -282,107 +275,6 @@ public sealed class OpenOcdVersionService : IOpenOcdVersionService
         var full = Path.GetFullPath(executablePath);
         var version = await QueryVersionAsync(full, cancellationToken).ConfigureAwait(false);
         return new OpenOcdInstallation(full, OpenOcdSource.Custom, version);
-    }
-
-    private async Task DownloadAsync(
-        string url,
-        string destination,
-        long expectedSize,
-        IProgress<InstallProgress> progress,
-        CancellationToken cancellationToken)
-    {
-        using var response = await _http
-            .GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
-            .ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
-
-        var total = response.Content.Headers.ContentLength ?? expectedSize;
-
-        await using var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        await using var target = new FileStream(destination, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
-
-        var buffer = new byte[81920];
-        long downloaded = 0;
-        var lastReported = -1;
-
-        while (true)
-        {
-            var read = await source.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
-            if (read == 0)
-            {
-                break;
-            }
-
-            await target.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
-            downloaded += read;
-
-            if (total <= 0)
-            {
-                continue;
-            }
-
-            var percent = (int)(downloaded * 100 / total);
-            if (percent != lastReported)
-            {
-                lastReported = percent;
-                progress.Report(new InstallProgress(
-                    $"正在下载 … {downloaded / 1024d / 1024d:F1} / {total / 1024d / 1024d:F1} MB",
-                    percent));
-            }
-        }
-    }
-
-    /// <summary>应用下载加速前缀，方便在访问 GitHub 受限的网络里下载。</summary>
-    private string ApplyMirror(string url)
-    {
-        var mirror = _settings.Current.DownloadMirror?.Trim();
-        if (string.IsNullOrEmpty(mirror))
-        {
-            return url;
-        }
-
-        return mirror.EndsWith('/') ? mirror + url : $"{mirror}/{url}";
-    }
-
-    /// <summary>解压安装包：Windows 是 zip，Linux/macOS 是 tar.gz。</summary>
-    private static Task ExtractAsync(string archivePath, string targetDirectory, CancellationToken cancellationToken) =>
-        Task.Run(
-            () =>
-            {
-                if (archivePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-                {
-                    ZipFile.ExtractToDirectory(archivePath, targetDirectory, overwriteFiles: true);
-                    return;
-                }
-
-                using var file = File.OpenRead(archivePath);
-                using var gzip = new GZipStream(file, CompressionMode.Decompress);
-                TarFile.ExtractToDirectory(gzip, targetDirectory, overwriteFiles: true);
-            },
-            cancellationToken);
-
-    /// <summary>
-    /// tar.gz 解出来的可执行位通常能保留，但 zip 不带权限信息；
-    /// 在类 Unix 系统上补一次 chmod +x，避免解压后跑不起来。
-    /// </summary>
-    private static void EnsureExecutable(string path)
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
-        try
-        {
-            var mode = File.GetUnixFileMode(path);
-            File.SetUnixFileMode(
-                path,
-                mode | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
-        }
-        catch (Exception)
-        {
-            // 权限设置失败时交给用户自己处理，不中断安装。
-        }
     }
 
     /// <summary>在目录里按常见布局查找 openocd 可执行文件。</summary>

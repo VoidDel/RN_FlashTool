@@ -219,7 +219,7 @@ public sealed class OpenOcdManagerViewModel : ObservableObject
 
         var newest = Releases.FirstOrDefault()?.Version;
         var current = SelectedInstallation?.Version;
-        StatusMessage = OpenOcdVersion.IsUpgrade(newest, current, OpenOcdVersion.IsDevBuild(current))
+        StatusMessage = LooseVersion.IsUpgrade(newest, current, LooseVersion.IsDevBuild(current))
             ? $"有新版本可用：{newest}（当前 {current ?? "未知"}）"
             : $"在线版本 {Releases.Count} 个，当前已是较新版本";
 

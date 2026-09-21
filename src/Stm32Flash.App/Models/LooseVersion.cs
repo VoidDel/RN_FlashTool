@@ -6,7 +6,7 @@ namespace Stm32Flash.App.Models;
 /// OpenOCD 版本号的宽松解析与比较。
 /// 能处理 “0.12.0-6”、“v0.12.0-6”、“0.12.0+dev-02228-ge5888bda3” 这几类写法。
 /// </summary>
-public static partial class OpenOcdVersion
+public static partial class LooseVersion
 {
     [GeneratedRegex(@"(\d+)\.(\d+)(?:\.(\d+))?(?:[-.](\d+))?", RegexOptions.CultureInvariant)]
     private static partial Regex VersionPattern();

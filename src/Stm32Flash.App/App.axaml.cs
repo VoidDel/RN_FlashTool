@@ -19,12 +19,22 @@ public partial class App : Application
             var settings = new SettingsService();
             var dialogs = new DialogService();
             var catalog = new ChipCatalogService();
-            var versions = new OpenOcdVersionService(settings);
+            var github = new GitHubClient(settings);
+            var versions = new OpenOcdVersionService(settings, github);
+            var appUpdates = new AppUpdateService(github);
             var runner = new OpenOcdRunner();
 
             desktop.MainWindow = new MainWindow
             {
-                DataContext = new MainViewModel(runner, versions, catalog, settings, dialogs),
+                DataContext = new MainViewModel(
+                    runner,
+                    versions,
+                    appUpdates,
+                    catalog,
+                    settings,
+                    dialogs,
+                    // 自升级需要先退出本进程，外部脚本才能覆盖程序目录
+                    requestShutdown: () => desktop.Shutdown()),
             };
         }
 

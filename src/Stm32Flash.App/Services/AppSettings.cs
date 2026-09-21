@@ -30,6 +30,12 @@ public sealed class AppSettings
     /// <summary>下载加速前缀，例如 “https://ghfast.top/”，留空表示直连 GitHub。</summary>
     public string DownloadMirror { get; set; } = string.Empty;
 
-    /// <summary>上次检查更新的时间，用于限制检查频率。</summary>
+    /// <summary>上次检查 OpenOCD 更新的时间，用于限制检查频率。</summary>
     public DateTimeOffset? LastUpdateCheck { get; set; }
+
+    /// <summary>启动时自动检查程序自身的更新。</summary>
+    public bool AutoCheckAppUpdate { get; set; } = true;
+
+    /// <summary>上次检查程序更新的时间。</summary>
+    public DateTimeOffset? LastAppUpdateCheck { get; set; }
 }

@@ -106,10 +106,27 @@ public sealed class DialogService : IDialogService
         }
     }
 
-    public async Task ShowOpenOcdManagerAsync(object viewModel)
+    public void OpenUrl(string url)
     {
-        var window = new OpenOcdManagerWindow { DataContext = viewModel };
+        try
+        {
+            // UseShellExecute 让系统按协议关联去开默认浏览器，三个平台都适用。
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true })?.Dispose();
+        }
+        catch (Exception exception)
+        {
+            _ = ErrorAsync("打开链接失败", $"{url}\n\n{exception.Message}");
+        }
+    }
 
+    public Task ShowOpenOcdManagerAsync(object viewModel) =>
+        ShowDialogAsync(new OpenOcdManagerWindow { DataContext = viewModel });
+
+    public Task ShowAppUpdateAsync(object viewModel) =>
+        ShowDialogAsync(new AppUpdateWindow { DataContext = viewModel });
+
+    private static async Task ShowDialogAsync(Window window)
+    {
         if (Owner is { } owner)
         {
             await window.ShowDialog(owner).ConfigureAwait(true);

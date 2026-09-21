@@ -66,6 +66,28 @@
         <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
     </Style>
 
+    <!-- 可点击的提示条：外观同 Border.notice，点一下打开对应的更新界面 -->
+    <Style Selector="Button.notice">
+        <Setter Property="Background" Value="{DynamicResource WarningBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WarningBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Foreground" Value="{DynamicResource WarningTextBrush}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="10,4" />
+        <Setter Property="MinHeight" Value="24" />
+        <Setter Property="MinWidth" Value="0" />
+    </Style>
+
+    <Style Selector="Button.notice /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WarningBackgroundBrush}" />
+    </Style>
+
+    <Style Selector="Button.notice:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource WarningBorderBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource WarningTextBrush}" />
+    </Style>
+
     <!-- 输入控件统一圆角与字号 -->
     <Style Selector="TextBox">
         <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}" />
