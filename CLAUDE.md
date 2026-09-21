@@ -4,105 +4,85 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a PySide6-based GUI application for flashing STM32 microcontrollers using OpenOCD. The application provides a simple interface to:
-- Select and flash firmware files (.bin or .elf formats) to STM32 targets
-- Verify flashed firmware
-- Reset connected devices
-- Support various programming interfaces (ST-Link, J-Link, CMSIS-DAP)
+跨平台的 STM32 固件烧录工具，基于 **Avalonia (.NET 10)**，底层调用 **OpenOCD**。功能：
 
-## Development Environment Setup
+- 烧录 / 验证 / 读取固件，复位目标设备
+- 支持 ST-Link、J-Link、CMSIS-DAP 三种编程器接口
+- 受支持芯片由 `chips/` 目录下的 YAML 文件定义，增删芯片无需改代码、无需重新编译
+- OpenOCD 可在线升级与多版本切换（来源为 xPack OpenOCD 发行版）
 
-1. **Python Environment**:
-   ```bash
-   # Activate virtual environment (if exists)
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-   # Install dependencies
-   pip install PySide6
-   ```
-
-2. **OpenOCD Dependency**:
-   - The application expects OpenOCD to be either:
-     - Available in system PATH, or
-     - Located in `./openocd/bin/openocd.exe` (Windows) or `./openocd/bin/openocd` (Unix)
-   - The repository includes a pre-packaged OpenOCD distribution in the `openocd/` directory
-
-## Running the Application
+## Build & Run
 
 ```bash
-python stm32_flash.py
+dotnet build Stm32Flash.sln
+dotnet run --project src/Stm32Flash.App
 ```
 
-## Key Architecture Components
+发布到其它平台（框架依赖）：
 
-### Core Classes
-
-1. **FlashManager** (`stm32_flash.py:54`):
-   - Manages OpenOCD configuration and execution
-   - Handles target chip detection and configuration file mapping
-   - Implements flash, verify, and reset operations
-   - Locates OpenOCD executable automatically
-
-2. **FlashWorker** (`stm32_flash.py:186`):
-   - Runs flash operations in a separate QThread to prevent UI blocking
-   - Emits signals when operations complete
-
-3. **FlashWindow** (`stm32_flash.py:207`):
-   - Main GUI window built with PySide6
-   - Manages UI state and user interactions
-   - Coordinates with FlashManager and FlashWorker
-
-### Target Configuration
-
-The application supports STM32 families through the `STM32_TARGET_MAP` dictionary (`stm32_flash.py:30`):
-- Maps chip prefixes to OpenOCD configuration files
-- Supports F0, F1, F2, F3, F4, F7, H7, L0, L1, L4, G0, G4 series
-
-### Temporary Files
-
-- OpenOCD configuration files are generated in the `./temp/` directory
-- Files are automatically cleaned up after operations
-
-## Common Development Tasks
-
-### Adding Support for New STM32 Families
-
-1. Add an entry to `STM32_TARGET_MAP` (`stm32_flash.py:30`)
-2. The key should be the lowercase chip prefix
-3. The value should be the corresponding OpenOCD target config file path
-
-### Modifying OpenOCD Commands
-
-Edit the following methods in `FlashManager`:
-- `flash()` (`stm32_flash.py:130`) - for flash operations
-- `verify()` (`stm32_flash.py:141`) - for verification
-- `reset()` (`stm32_flash.py:152`) - for reset commands
-
-### Adding New Programming Interfaces
-
-Update `cfg_header()` method (`stm32_flash.py:80`) in `FlashManager`:
-1. Add a new elif block for the interface
-2. Specify the appropriate interface config file and transport selection
-3. Add the interface name to the dropdown in `_build_ui()` (`stm32_flash.py:249`)
-
-## File Structure
-
-```
-STM32_FLASH_CLI/
-├── stm32_flash.py    # Main application file
-├── openocd/              # OpenOCD distribution
-│   ├── bin/
-│   │   └── openocd.exe
-│   └── distro-info/
-├── temp/                 # Temporary OpenOCD configs (created at runtime)
-├── .venv/               # Python virtual environment
-└── .claude/             # Claude Code settings
+```bash
+dotnet publish src/Stm32Flash.App -c Release -r win-x64   --self-contained false
+dotnet publish src/Stm32Flash.App -c Release -r linux-x64 --self-contained false
+dotnet publish src/Stm32Flash.App -c Release -r osx-arm64 --self-contained false
 ```
 
-## Important Implementation Details
+## Architecture
 
-- All file paths are converted to forward slashes for OpenOCD compatibility
-- The application uses Qt signals/slots for thread communication
-- OpenOCD operations are non-blocking through the use of QThread
-- Target chip detection is case-insensitive
-- Default flash address is `0x08000000` (typical for STM32 devices)
+`src/Stm32Flash.App/` 按 MVVM 分层，Models / Services / ViewModels 不引用任何 UI 类型
+（只有 `OpenOcdManagerViewModel` 为修正列表选中时机用到了 `Dispatcher`）。
+
+### Models
+
+- `ChipDefinition` — 一个芯片定义，对应 `chips/` 下的一个 YAML 文件
+- `FlashOptions` — 一次操作的参数快照，`BuildConfigHeader()` 负责拼 OpenOCD 配置头部
+- `ProgrammerInterface` — 编程器接口及其 OpenOCD 配置片段（静态定义，不走 YAML）
+- `OpenOcdInstallation` / `OpenOcdRelease` / `OpenOcdVersion` — 版本管理用的数据与版本号比较
+
+### Services
+
+- `ChipCatalogService` — 扫描并解析 `chips/*.yaml`，提供按 id / 名称 / 前缀的解析
+- `OpenOcdRunner` — 生成临时 cfg、启动 openocd、**流式**回报输出、支持取消与超时
+- `OpenOcdVersionService` — 发现本机 OpenOCD、拉取 xPack 发行版、下载安装、卸载
+- `SettingsService` — 用户选择持久化到 `settings.json`
+- `DialogService` — 文件对话框（Avalonia `StorageProvider`）与自绘消息框，**全部异步**
+
+### 目录约定（`AppPaths`）
+
+| 用途 | 位置 |
+| --- | --- |
+| 内置芯片定义 | `<程序目录>/chips/` |
+| 用户芯片定义（同 id 覆盖内置） | `<AppData>/Stm32FlashTool/chips/` |
+| 配置 | `<AppData>/Stm32FlashTool/settings.json` |
+| 下载的 OpenOCD | `<LocalAppData>/Stm32FlashTool/openocd/<版本>/` |
+| 临时 cfg | `<LocalAppData>/Stm32FlashTool/temp/` |
+
+## Common Tasks
+
+### 新增受支持的芯片
+
+复制 `src/Stm32Flash.App/chips/` 下任一 `.yaml`，改 `id` / `name` / `series` / `targetConfig` 即可。
+可选字段：`matchPrefixes`（按前缀解析型号，用于 settings.json 里写成完整型号的情形）、
+`flashAddress`、`flashSize`、`adapterSpeed`、`extraConfigLines`。
+**不需要改任何 C# 代码。**
+
+### 修改 OpenOCD 命令
+
+在 `OpenOcdRunner.BuildCommands()` 里按操作类型（`FlashOperation`）调整 Tcl 命令。
+配置文件头部（接口、target、复位方式）在 `FlashOptions.BuildConfigHeader()`。
+
+### 新增编程器接口
+
+在 `ProgrammerInterface` 里加一个静态实例并加入 `All`，界面下拉框会自动出现该项。
+
+## Implementation Notes
+
+- 目标框架是 `net10.0`（不带 `-windows`）；平台差异只在
+  `OpenOcdVersionService`（可执行名、安装包架构与格式、Unix 执行权限）和
+  `DialogService.OpenFolder`（explorer / open / xdg-open）里分支处理
+- OpenOCD 的 Tcl 配置里路径统一用正斜杠，避免 Windows 反斜杠被当成转义符
+- XAML 启用了编译绑定（`AvaloniaUseCompiledBindingsByDefault`），绑定写错会在编译期报错；
+  但 `{StaticResource}` 的类型转换是运行期的，`ColumnDefinitions` 这类属性必须写字面量
+- Avalonia 的 `ComboBox` 不像 WPF 那样支持 `IsEditable`；目标芯片用的是普通下拉框，
+  若将来需要"可选可输入"，得换成 `AutoCompleteBox`
+- 内置 OpenOCD 的版本号形如 `0.12.0+dev`，解析不出 xPack 打包修订号；
+  `OpenOcdVersion.IsUpgrade()` 对开发版只比较 主.次.补丁，避免一直误报有新版本
