@@ -285,7 +285,7 @@ public sealed class OpenOcdManagerViewModel : ObservableObject
             return;
         }
 
-        if (!await _dialogs.ConfirmAsync("删除版本", $"确定要删除 {installation.DisplayName} 吗？\n\n{installation.InstallDirectory}"))
+        if (!await _dialogs.ConfirmAsync("删除 OpenOCD", $"确定要删除 {installation.DisplayName} 吗？"))
         {
             return;
         }
