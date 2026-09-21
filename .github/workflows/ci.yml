@@ -24,17 +24,17 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: 还原依赖
-        run: dotnet restore Stm32Flash.sln
+        run: dotnet restore RN_FlashTool.sln
 
       - name: 构建
-        run: dotnet build Stm32Flash.sln -c Release --no-restore
+        run: dotnet build RN_FlashTool.sln -c Release --no-restore
 
       # 目标框架是 net10.0，三个平台都应该能发布；任一失败说明引入了平台相关代码
       - name: 交叉发布检查
         run: |
           for rid in win-x64 linux-x64 osx-arm64; do
             echo "::group::$rid"
-            dotnet publish src/Stm32Flash.App -c Release -r "$rid" \
+            dotnet publish src/RnFlashTool.App -c Release -r "$rid" \
               --self-contained false -o "/tmp/check-$rid"
             echo "::endgroup::"
           done

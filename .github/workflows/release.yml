@@ -46,13 +46,13 @@ jobs:
             label="dev-${GITHUB_SHA::7}"
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "name=Stm32Flash-$label-${{ matrix.rid }}" >> "$GITHUB_OUTPUT"
+          echo "name=RnFlashTool-$label-${{ matrix.rid }}" >> "$GITHUB_OUTPUT"
           echo "版本号: $version（包名: $label）"
 
       # 自包含发布：目标机器不需要预装 .NET 运行时
       - name: 发布
         run: >
-          dotnet publish src/Stm32Flash.App
+          dotnet publish src/RnFlashTool.App
           -c Release
           -r ${{ matrix.rid }}
           --self-contained true
@@ -79,7 +79,7 @@ jobs:
       # 交叉发布出来的类 Unix 可执行文件需要显式补上执行位
       - name: 设置可执行权限
         if: matrix.rid != 'win-x64'
-        run: chmod +x dist/${{ matrix.rid }}/Stm32Flash
+        run: chmod +x dist/${{ matrix.rid }}/RnFlashTool
 
       - name: 压缩
         run: |
@@ -129,10 +129,10 @@ jobs:
 
           | 平台 | 文件 |
           | --- | --- |
-          | Windows x64 | `Stm32Flash-<版本>-win-x64.zip`（已附带 OpenOCD，解压即用） |
-          | Linux x64 | `Stm32Flash-<版本>-linux-x64.tar.gz` |
-          | macOS Intel | `Stm32Flash-<版本>-osx-x64.tar.gz` |
-          | macOS Apple Silicon | `Stm32Flash-<版本>-osx-arm64.tar.gz` |
+          | Windows x64 | `RnFlashTool-<版本>-win-x64.zip`（已附带 OpenOCD，解压即用） |
+          | Linux x64 | `RnFlashTool-<版本>-linux-x64.tar.gz` |
+          | macOS Intel | `RnFlashTool-<版本>-osx-x64.tar.gz` |
+          | macOS Apple Silicon | `RnFlashTool-<版本>-osx-arm64.tar.gz` |
 
           均为自包含构建，目标机器**不需要**预装 .NET 运行时。
 
@@ -141,7 +141,7 @@ jobs:
           通常还需要安装 udev 规则。
 
           macOS 首次运行若被 Gatekeeper 拦下（构建未签名），解压后执行：
-          `xattr -dr com.apple.quarantine Stm32Flash`
+          `xattr -dr com.apple.quarantine RnFlashTool`
 
           校验和见 `SHA256SUMS.txt`。
           EOF

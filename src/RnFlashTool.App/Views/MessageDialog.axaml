@@ -1,0 +1,63 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RnFlashTool.App.Views.MessageDialog"
+        Width="440"
+        SizeToContent="Height"
+        MaxHeight="560"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource CardBackgroundBrush}"
+        Title="提示">
+
+    <Grid RowDefinitions="*,Auto" Margin="20,18,20,16">
+
+        <Grid ColumnDefinitions="Auto,*">
+            <Border x:Name="IconBadge"
+                    Width="34" Height="34"
+                    CornerRadius="17"
+                    VerticalAlignment="Top"
+                    Margin="0,2,14,0"
+                    Background="{DynamicResource AccentSoftBrush}">
+                <TextBlock x:Name="IconGlyph"
+                           Text="i"
+                           FontSize="18"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource AccentBrush}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center" />
+            </Border>
+
+            <StackPanel Grid.Column="1" Spacing="6">
+                <TextBlock x:Name="TitleText"
+                           FontSize="14"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap" />
+                <ScrollViewer MaxHeight="360" HorizontalScrollBarVisibility="Disabled">
+                    <SelectableTextBlock x:Name="MessageText"
+                                         TextWrapping="Wrap"
+                                         LineHeight="19"
+                                         Foreground="{DynamicResource TextSecondaryBrush}" />
+                </ScrollViewer>
+            </StackPanel>
+        </Grid>
+
+        <StackPanel Grid.Row="1"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="8"
+                    Margin="0,18,0,0">
+            <Button x:Name="CancelButton"
+                    Content="取消"
+                    MinWidth="78"
+                    IsVisible="False"
+                    Click="OnCancelClick" />
+            <Button x:Name="OkButton"
+                    Classes="accent"
+                    Content="确定"
+                    MinWidth="78"
+                    IsDefault="True"
+                    Click="OnOkClick" />
+        </StackPanel>
+    </Grid>
+</Window>
