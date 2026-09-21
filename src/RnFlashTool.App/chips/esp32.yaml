@@ -1,0 +1,41 @@
+# ESP32 —— RN FlashTool 芯片定义
+#
+# 本目录下每个 .yaml 文件描述一款（或一系列）芯片。
+# 新增芯片：复制本文件改名，修改 id / name / targetConfig 即可，无需重新编译。
+# 用户自定义目录：%APPDATA%\RN_FlashTool\chips（同 id 会覆盖此处的内置定义）。
+
+# 唯一标识，小写；同时作为手动输入型号时的默认匹配前缀
+id: esp32
+
+# 下拉列表中显示的名称
+name: ESP32
+
+# 所属系列，用于下拉列表分组
+series: ESP32
+
+# OpenOCD target 配置文件，相对于 OpenOCD 的 scripts 目录
+targetConfig: target/esp32.cfg
+
+# ESP32 系列只能走 JTAG，配套的编程器请选 “ESP USB-JTAG（内置）” 或 “ESP-PROG（FTDI）”
+transport: jtag
+
+# 手动输入完整型号时用于匹配的前缀，按最长前缀命中
+matchPrefixes:
+  - esp32
+
+# 应用分区的常见起始地址（ESP-IDF 默认布局：bootloader 0x1000 / 分区表 0x8000 / 应用 0x10000）
+flashAddress: "0x10000"
+
+# 可选：Flash 容量。设置后“读取固件”会用它作为默认读取大小
+# flashSize: "0x400000"
+
+# 可选：调试器速度（kHz），设置后覆盖编程器接口的默认速度
+# adapterSpeed: 20000
+
+# 可选：追加到 OpenOCD 配置末尾的自定义命令。
+# 注意：ESP32 的烧录命令与 Cortex-M 不同，若 flash write_image 不适用，
+# 可在此处补充 Espressif 专用命令。本定义未在真机上验证过。
+# extraConfigLines:
+#   - "esp appimage_offset 0x10000"
+
+description: ESP32（Xtensa LX6，双核）

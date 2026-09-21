@@ -1,0 +1,28 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:RnFlashTool.App.Views"
+             x:Class="RnFlashTool.App.App"
+             RequestedThemeVariant="Light">
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://RnFlashTool/Themes/Colors.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <views:FirmwareFormatConverter x:Key="FirmwareFormat" />
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <!-- Compact 密度让控件更紧凑，配合 Colors.axaml 里调小的字号 -->
+        <FluentTheme DensityStyle="Compact">
+            <FluentTheme.Palettes>
+                <ColorPaletteResources x:Key="Light" Accent="#2563EB" RegionColor="#F7F8FA" />
+                <ColorPaletteResources x:Key="Dark" Accent="#3B82F6" />
+            </FluentTheme.Palettes>
+        </FluentTheme>
+
+        <StyleInclude Source="avares://RnFlashTool/Themes/Controls.axaml" />
+    </Application.Styles>
+</Application>
