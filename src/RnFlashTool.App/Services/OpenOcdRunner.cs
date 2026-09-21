@@ -56,7 +56,7 @@ public sealed class OpenOcdRunner : IOpenOcdRunner
                 return $"固件文件不存在: {options.FirmwarePath}";
             }
 
-            if (options.Format == FirmwareFormat.Bin && string.IsNullOrWhiteSpace(options.Address))
+            if (!options.Format.CarriesAddress() && string.IsNullOrWhiteSpace(options.Address))
             {
                 return "BIN 格式必须指定烧录地址";
             }
@@ -84,18 +84,20 @@ public sealed class OpenOcdRunner : IOpenOcdRunner
                     commands.Add("flash erase_sector 0 0 last");
                 }
 
-                commands.Add(options.Format == FirmwareFormat.Bin
-                    ? $"flash write_image erase \"{firmware}\" {options.Address} bin"
-                    : $"flash write_image erase \"{firmware}\"");
+                // ELF / HEX / S19 不写 type，OpenOCD 会按文件内容自己认
+                // （日志里的 "IHEX image detected." 就是它打的）；只有裸二进制要补地址。
+                commands.Add(options.Format.CarriesAddress()
+                    ? $"flash write_image erase \"{firmware}\""
+                    : $"flash write_image erase \"{firmware}\" {options.Address} bin");
                 return string.Join("\n", commands);
             }
 
             case FlashOperation.Verify:
             {
                 var firmware = ToOpenOcdPath(options.FirmwarePath);
-                return options.Format == FirmwareFormat.Bin
-                    ? $"verify_image \"{firmware}\" {options.Address} bin"
-                    : $"verify_image \"{firmware}\"";
+                return options.Format.CarriesAddress()
+                    ? $"verify_image \"{firmware}\""
+                    : $"verify_image \"{firmware}\" {options.Address} bin";
             }
 
             case FlashOperation.Read:

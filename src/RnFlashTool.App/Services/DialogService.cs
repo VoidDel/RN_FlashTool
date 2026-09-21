@@ -11,7 +11,13 @@ public sealed class DialogService : IDialogService
 {
     private static readonly FilePickerFileType FirmwareFiles = new("固件文件")
     {
-        Patterns = ["*.elf", "*.bin", "*.hex", "*.axf"],
+        Patterns =
+        [
+            "*.elf", "*.axf", "*.out",
+            "*.hex", "*.ihex",
+            "*.s19", "*.s28", "*.s37", "*.srec", "*.mot",
+            "*.bin",
+        ],
     };
 
     private static readonly FilePickerFileType BinFiles = new("BIN 文件") { Patterns = ["*.bin"] };
@@ -75,6 +81,9 @@ public sealed class DialogService : IDialogService
 
     public Task<bool> ConfirmAsync(string title, string message) =>
         MessageDialog.ShowAsync(Owner, title, message, MessageDialogKind.Question, confirm: true);
+
+    public Task<MemoryRangeInput?> AskMemoryRangeAsync(string title, string message, string address, string? readSize) =>
+        MemoryRangeDialog.ShowAsync(Owner, title, message, address, readSize);
 
     public Task InfoAsync(string title, string message) =>
         MessageDialog.ShowAsync(Owner, title, message, MessageDialogKind.Information, confirm: false);

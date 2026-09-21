@@ -1,0 +1,61 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RnFlashTool.App.Views.MemoryRangeDialog"
+        Width="400"
+        SizeToContent="Height"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource CardBackgroundBrush}"
+        Title="地址范围">
+
+    <StackPanel Margin="20,18,20,16" Spacing="12">
+
+        <StackPanel Spacing="6">
+            <TextBlock x:Name="TitleText"
+                       FontSize="14"
+                       FontWeight="SemiBold"
+                       TextWrapping="Wrap" />
+            <TextBlock x:Name="MessageText"
+                       TextWrapping="Wrap"
+                       LineHeight="19"
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
+        </StackPanel>
+
+        <Grid ColumnDefinitions="68,*" RowDefinitions="Auto,Auto">
+            <TextBlock Classes="label" Text="起始地址" />
+            <TextBox x:Name="AddressBox"
+                     Grid.Column="1"
+                     PlaceholderText="0x08000000" />
+
+            <TextBlock x:Name="SizeLabel"
+                       Grid.Row="1"
+                       Classes="label"
+                       Text="读取大小"
+                       Margin="0,8,10,0" />
+            <TextBox x:Name="SizeBox"
+                     Grid.Row="1" Grid.Column="1"
+                     Margin="0,8,0,0"
+                     PlaceholderText="0x10000" />
+        </Grid>
+
+        <!-- 校验失败时才出现，避免空着也占高度 -->
+        <TextBlock x:Name="ErrorText"
+                   IsVisible="False"
+                   TextWrapping="Wrap"
+                   Foreground="{DynamicResource DangerBrush}" />
+
+        <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="8">
+            <Button Content="取消"
+                    MinWidth="78"
+                    Click="OnCancelClick" />
+            <Button Classes="accent"
+                    Content="确定"
+                    MinWidth="78"
+                    IsDefault="True"
+                    Click="OnOkClick" />
+        </StackPanel>
+    </StackPanel>
+</Window>

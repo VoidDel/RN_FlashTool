@@ -28,8 +28,10 @@ public sealed class MainViewModel : ObservableObject
 
     private string _firmwarePath = string.Empty;
     private FirmwareFormat _selectedFormat = FirmwareFormat.Elf;
-    private string _address = FlashOptions.DefaultAddress;
-    private string _readSize = FlashOptions.DefaultReadSize;
+    // 地址与长度不再出现在主界面上：烧录用芯片 YAML 里声明的地址，
+    // 读取 / 验证按下去时才弹窗询问，这两个字段只是记住上次填过的值。
+    private string _lastAddress = FlashOptions.DefaultAddress;
+    private string _lastReadSize = FlashOptions.DefaultReadSize;
     private bool _fullErase = true;
     private int _timeoutSeconds = FlashOptions.DefaultTimeoutSeconds;
     private ProgrammerInterface _selectedInterface = ProgrammerInterface.CmsisDap;
@@ -82,7 +84,8 @@ public sealed class MainViewModel : ObservableObject
 
     public IReadOnlyList<ProgrammerInterface> Interfaces => ProgrammerInterface.All;
 
-    public IReadOnlyList<FirmwareFormat> Formats { get; } = [FirmwareFormat.Elf, FirmwareFormat.Bin];
+    public IReadOnlyList<FirmwareFormat> Formats { get; } =
+        [FirmwareFormat.Elf, FirmwareFormat.Bin, FirmwareFormat.Ihex, FirmwareFormat.S19];
 
     public AsyncRelayCommand BrowseFirmwareCommand { get; }
 
@@ -111,25 +114,50 @@ public sealed class MainViewModel : ObservableObject
     public string FirmwarePath
     {
         get => _firmwarePath;
-        set => SetProperty(ref _firmwarePath, value);
+        set
+        {
+            if (SetProperty(ref _firmwarePath, value))
+            {
+                OnPropertyChanged(nameof(ShowFormatPicker));
+                OnPropertyChanged(nameof(HasAutoFormat));
+                OnPropertyChanged(nameof(FirmwareFormatSummary));
+            }
+        }
     }
 
+    /// <summary>下拉框里选的格式，只有扩展名认不出来时才起作用。</summary>
     public FirmwareFormat SelectedFormat
     {
         get => _selectedFormat;
         set => SetProperty(ref _selectedFormat, value);
     }
 
-    public string Address
-    {
-        get => _address;
-        set => SetProperty(ref _address, value);
-    }
+    /// <summary>本次操作真正使用的格式：扩展名认得出来就听扩展名的，认不出来才看下拉框。</summary>
+    public FirmwareFormat EffectiveFormat =>
+        FirmwareFormatExtensions.FromFileName(FirmwarePath) ?? SelectedFormat;
 
-    public string ReadSize
+    /// <summary>扩展名认不出格式时（例如没有扩展名的编译产物）才把下拉框放出来。</summary>
+    public bool ShowFormatPicker =>
+        !string.IsNullOrWhiteSpace(FirmwarePath) && FirmwareFormatExtensions.FromFileName(FirmwarePath) is null;
+
+    public bool HasAutoFormat => !ShowFormatPicker;
+
+    /// <summary>自动识别成功时显示的一行提示，代替下拉框。</summary>
+    public string FirmwareFormatSummary
     {
-        get => _readSize;
-        set => SetProperty(ref _readSize, value);
+        get
+        {
+            if (string.IsNullOrWhiteSpace(FirmwarePath))
+            {
+                return "支持 .elf / .axf / .out、.hex、.s19 / .srec / .mot 与 .bin，格式按扩展名自动识别";
+            }
+
+            return FirmwareFormatExtensions.FromFileName(FirmwarePath) is { } format
+                ? format == FirmwareFormat.Bin
+                    ? "格式: BIN　烧录用芯片定义里的地址，验证时会询问地址"
+                    : $"格式: {format.ToDisplayName()}　地址由文件自带"
+                : string.Empty;
+        }
     }
 
     public bool FullErase
@@ -166,6 +194,14 @@ public sealed class MainViewModel : ObservableObject
 
     /// <summary>当前生效的芯片，芯片列表为空时才会是 <c>null</c>。</summary>
     public ChipDefinition? EffectiveChip => SelectedChip;
+
+    /// <summary>
+    /// 烧录用的起始地址：取芯片 YAML 里的 <c>flashAddress</c>，没写时退回 0x08000000。
+    /// 界面上不再让改，所以这里不能受“读取 / 验证”弹窗里填过的值影响。
+    /// </summary>
+    private string FlashAddress => EffectiveChip?.FlashAddress is { } configured && !string.IsNullOrWhiteSpace(configured)
+        ? configured.Trim()
+        : FlashOptions.DefaultAddress;
 
     /// <summary>目标配置摘要，显示在芯片下拉框下方。</summary>
     public string TargetSummary => EffectiveChip is { } chip
@@ -325,8 +361,8 @@ public sealed class MainViewModel : ObservableObject
         SelectedFormat = Enum.TryParse<FirmwareFormat>(settings.Format, ignoreCase: true, out var format)
             ? format
             : FirmwareFormat.Elf;
-        Address = string.IsNullOrWhiteSpace(settings.Address) ? FlashOptions.DefaultAddress : settings.Address;
-        ReadSize = string.IsNullOrWhiteSpace(settings.ReadSize) ? FlashOptions.DefaultReadSize : settings.ReadSize;
+        _lastAddress = string.IsNullOrWhiteSpace(settings.Address) ? FlashOptions.DefaultAddress : settings.Address;
+        _lastReadSize = string.IsNullOrWhiteSpace(settings.ReadSize) ? FlashOptions.DefaultReadSize : settings.ReadSize;
         FullErase = settings.FullErase;
         TimeoutSeconds = settings.TimeoutSeconds;
         SelectedInterface = ProgrammerInterface.FromId(settings.InterfaceId);
@@ -344,8 +380,8 @@ public sealed class MainViewModel : ObservableObject
 
         settings.FirmwarePath = FirmwarePath;
         settings.Format = SelectedFormat.ToString();
-        settings.Address = Address;
-        settings.ReadSize = ReadSize;
+        settings.Address = _lastAddress;
+        settings.ReadSize = _lastReadSize;
         settings.FullErase = FullErase;
         settings.TimeoutSeconds = TimeoutSeconds;
         settings.InterfaceId = SelectedInterface.Id;
@@ -355,17 +391,17 @@ public sealed class MainViewModel : ObservableObject
         _settings.Save();
     }
 
-    /// <summary>选中芯片时套用它在 YAML 里声明的默认地址与容量。</summary>
+    /// <summary>换芯片时把 YAML 里声明的地址与容量作为下次弹窗的默认值。</summary>
     private void ApplyChipDefaults(ChipDefinition chip)
     {
         if (!string.IsNullOrWhiteSpace(chip.FlashAddress))
         {
-            Address = chip.FlashAddress.Trim();
+            _lastAddress = chip.FlashAddress.Trim();
         }
 
         if (!string.IsNullOrWhiteSpace(chip.FlashSize))
         {
-            ReadSize = chip.FlashSize.Trim();
+            _lastReadSize = chip.FlashSize.Trim();
         }
     }
 
@@ -379,7 +415,8 @@ public sealed class MainViewModel : ObservableObject
 
         FirmwarePath = path;
 
-        // 按扩展名自动切换格式，省得手动改。
+        // 格式由 EffectiveFormat 按扩展名现算，这里只是顺手把下拉框的值也对齐，
+        // 下次选到没有扩展名的文件时它就是个合理的起点。
         if (FirmwareFormatExtensions.FromFileName(path) is { } format)
         {
             SelectedFormat = format;
@@ -408,11 +445,19 @@ public sealed class MainViewModel : ObservableObject
 
         string? outputPath = null;
 
+        // 烧录固定用芯片声明的地址；读取每次都问，验证只在 BIN 这种不带地址的格式下问。
+        var address = FlashAddress;
+        var readSize = _lastReadSize;
+
         if (operation == FlashOperation.Flash)
         {
+            var target = !EffectiveFormat.CarriesAddress()
+                ? $"{chip.DisplayName} 的 {address}"
+                : chip.DisplayName;
+
             var confirmed = await _dialogs.ConfirmAsync(
                 "确认烧录",
-                $"确定要把 {Path.GetFileName(FirmwarePath)} 烧录到 {chip.DisplayName} 吗？" +
+                $"确定要把 {Path.GetFileName(FirmwarePath)} 烧录到 {target} 吗？" +
                 (FullErase ? "\n\n烧录前会执行全片擦除。" : string.Empty)).ConfigureAwait(true);
 
             if (!confirmed)
@@ -420,8 +465,38 @@ public sealed class MainViewModel : ObservableObject
                 return;
             }
         }
+        else if (operation == FlashOperation.Verify && !EffectiveFormat.CarriesAddress())
+        {
+            // ELF 的段地址和长度都在文件里，verify_image 自己会读，不必打扰用户；
+            // BIN 是裸二进制，不问就不知道该跟哪一段比。
+            if (await _dialogs.AskMemoryRangeAsync(
+                    "验证固件",
+                    $"将 {Path.GetFileName(FirmwarePath)} 与该地址开始的内容逐字节比对。",
+                    _lastAddress,
+                    null).ConfigureAwait(true) is not { } input)
+            {
+                return;
+            }
+
+            _lastAddress = input.Address;
+            address = input.Address;
+        }
         else if (operation == FlashOperation.Read)
         {
+            if (await _dialogs.AskMemoryRangeAsync(
+                    "读取固件",
+                    $"从 {chip.DisplayName} 读回一段内容并存成 .bin 文件。",
+                    _lastAddress,
+                    _lastReadSize).ConfigureAwait(true) is not { } input)
+            {
+                return;
+            }
+
+            _lastAddress = input.Address;
+            _lastReadSize = input.ReadSize;
+            address = input.Address;
+            readSize = input.ReadSize;
+
             outputPath = await _dialogs.PickDumpTargetAsync($"{chip.Id}-dump.bin").ConfigureAwait(true);
             if (string.IsNullOrWhiteSpace(outputPath))
             {
@@ -435,9 +510,9 @@ public sealed class MainViewModel : ObservableObject
             ScriptsDirectory = openOcd.ScriptsDirectory,
             Chip = chip,
             FirmwarePath = FirmwarePath,
-            Format = SelectedFormat,
-            Address = Address.Trim(),
-            ReadSize = ReadSize.Trim(),
+            Format = EffectiveFormat,
+            Address = address.Trim(),
+            ReadSize = readSize.Trim(),
             FullErase = FullErase,
             Interface = SelectedInterface,
             TimeoutSeconds = TimeoutSeconds,

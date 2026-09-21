@@ -20,6 +20,12 @@ public interface IDialogService
 
     Task<bool> ConfirmAsync(string title, string message);
 
+    /// <summary>
+    /// 询问一次操作要用的地址范围；<paramref name="readSize"/> 传 <c>null</c> 时只问起始地址。
+    /// 用户取消时返回 <c>null</c>。
+    /// </summary>
+    Task<MemoryRangeInput?> AskMemoryRangeAsync(string title, string message, string address, string? readSize);
+
     Task InfoAsync(string title, string message);
 
     Task WarnAsync(string title, string message);

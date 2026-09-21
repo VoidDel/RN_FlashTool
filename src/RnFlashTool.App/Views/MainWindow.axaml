@@ -122,12 +122,12 @@
                                 <TextBlock Classes="section" Text="固件配置" />
 
                                 <Grid ColumnDefinitions="62,*,Auto"
-                                      RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                                      RowDefinitions="Auto,Auto,Auto,Auto"
                                       Margin="0">
                                     <TextBlock Classes="label" Text="固件文件" />
                                     <TextBox Grid.Column="1"
                                              Text="{Binding FirmwarePath}"
-                                             PlaceholderText="选择 .elf / .bin 文件"
+                                             PlaceholderText="选择 .elf / .hex / .bin 文件"
                                              ToolTip.Tip="{Binding FirmwarePath}" />
                                     <Button Grid.Column="2"
                                             Margin="6,0,0,0"
@@ -135,11 +135,25 @@
                                             Content="浏览"
                                             Command="{Binding BrowseFirmwareCommand}" />
 
-                                    <TextBlock Grid.Row="1" Classes="label" Text="格式" Margin="0,8,10,0" />
-                                    <ComboBox Grid.Row="1" Grid.Column="1"
+                                    <!-- 扩展名认得出格式就只显示一行提示；认不出来（例如没有扩展名的
+                                         编译产物）才把下拉框放出来让用户自己指定 -->
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                                               Classes="hint"
+                                               Margin="0,6,0,0"
+                                               TextTrimming="None"
+                                               TextWrapping="Wrap"
+                                               IsVisible="{Binding HasAutoFormat}"
+                                               Text="{Binding FirmwareFormatSummary}" />
+
+                                    <TextBlock Grid.Row="2" Classes="label" Text="格式"
+                                               Margin="0,8,10,0"
+                                               IsVisible="{Binding ShowFormatPicker}" />
+                                    <ComboBox Grid.Row="2" Grid.Column="1"
                                               Margin="0,8,0,0"
+                                              IsVisible="{Binding ShowFormatPicker}"
                                               ItemsSource="{Binding Formats}"
-                                              SelectedItem="{Binding SelectedFormat}">
+                                              SelectedItem="{Binding SelectedFormat}"
+                                              ToolTip.Tip="文件没有可识别的扩展名，需要自己指定格式">
                                         <ComboBox.ItemTemplate>
                                             <DataTemplate>
                                                 <TextBlock Text="{Binding Converter={StaticResource FirmwareFormat}}" />
@@ -147,19 +161,9 @@
                                         </ComboBox.ItemTemplate>
                                     </ComboBox>
 
-                                    <TextBlock Grid.Row="2" Classes="label" Text="起始地址" Margin="0,8,10,0" />
-                                    <TextBox Grid.Row="2" Grid.Column="1"
-                                             Margin="0,8,0,0"
-                                             Text="{Binding Address}"
-                                             ToolTip.Tip="BIN 烧录与“读取固件”都使用该地址；ELF 烧录时由文件自带地址，此处会被忽略" />
-
-                                    <TextBlock Grid.Row="3" Classes="label" Text="读取大小" Margin="0,8,10,0" />
-                                    <TextBox Grid.Row="3" Grid.Column="1"
-                                             Margin="0,8,0,0"
-                                             Text="{Binding ReadSize}"
-                                             ToolTip.Tip="“读取固件”时从起始地址读取的字节数，例如 0x10000" />
-
-                                    <CheckBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2"
+                                    <!-- 起始地址与读取大小不在这里出现：烧录用芯片定义里的地址，
+                                         读取 / 验证按下去时才弹窗询问 -->
+                                    <CheckBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2"
                                               Margin="0,8,0,0"
                                               Content="烧录前全片擦除"
                                               IsChecked="{Binding FullErase}" />
