@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- 跨平台目标：Windows / Linux / macOS 共用同一套代码 -->
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Stm32Flash</AssemblyName>
+    <RootNamespace>Stm32Flash.App</RootNamespace>
+    <Version>2.0.0</Version>
+    <Product>STM32 固件烧录工具</Product>
+    <Company>STM32 Flash Tool</Company>
+    <NeutralLanguage>zh-CN</NeutralLanguage>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.2" />
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
+  </ItemGroup>
+
+  <!-- 芯片定义随程序一起输出，用户可直接在输出目录的 chips/ 下增删 YAML 文件 -->
+  <ItemGroup>
+    <Content Include="chips\**\*.yaml" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="chips\**\*.yml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
