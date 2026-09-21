@@ -1,0 +1,152 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  # 手动触发时只产出构建物，不创建 Release，方便验证打包流程
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: 打包 ${{ matrix.rid }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            archive: zip
+          - rid: linux-x64
+            archive: tar.gz
+          - rid: osx-x64
+            archive: tar.gz
+          - rid: osx-arm64
+            archive: tar.gz
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: 解析版本号
+        id: meta
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+            label="$version"
+          else
+            # artifact 名字里不能带 '+'，手动触发时改用短 SHA 区分
+            version="0.0.0-dev"
+            label="dev-${GITHUB_SHA::7}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "name=Stm32Flash-$label-${{ matrix.rid }}" >> "$GITHUB_OUTPUT"
+          echo "版本号: $version（包名: $label）"
+
+      # 自包含发布：目标机器不需要预装 .NET 运行时
+      - name: 发布
+        run: >
+          dotnet publish src/Stm32Flash.App
+          -c Release
+          -r ${{ matrix.rid }}
+          --self-contained true
+          -p:Version=${{ steps.meta.outputs.version }}
+          -p:DebugType=none
+          -o dist/${{ matrix.rid }}
+
+      # SkiaSharp / HarfBuzzSharp 会附带近 100MB 的原生调试符号（libSkiaSharp.pdb 等），
+      # DebugType=none 只管托管 PDB，这里手动清掉，发布体积 207MB -> 107MB
+      - name: 精简发布产物
+        run: |
+          rm -f dist/${{ matrix.rid }}/*.pdb dist/${{ matrix.rid }}/*.xml
+          du -sh dist/${{ matrix.rid }}
+
+      # 仓库里自带的是 Windows 版 OpenOCD，只随 win-x64 一起分发；
+      # 其它平台由程序内的“OpenOCD 版本管理”自行下载对应架构的包
+      - name: 附带 OpenOCD（仅 Windows）
+        if: matrix.rid == 'win-x64'
+        run: cp -r openocd dist/${{ matrix.rid }}/openocd
+
+      - name: 附带说明文档
+        run: cp README.md dist/${{ matrix.rid }}/
+
+      # 交叉发布出来的类 Unix 可执行文件需要显式补上执行位
+      - name: 设置可执行权限
+        if: matrix.rid != 'win-x64'
+        run: chmod +x dist/${{ matrix.rid }}/Stm32Flash
+
+      - name: 压缩
+        run: |
+          mkdir -p artifacts
+          cd dist/${{ matrix.rid }}
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            zip -qr "../../artifacts/${{ steps.meta.outputs.name }}.zip" .
+          else
+            tar -czf "../../artifacts/${{ steps.meta.outputs.name }}.tar.gz" .
+          fi
+          cd ../..
+          ls -lh artifacts/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.name }}
+          path: artifacts/*
+          retention-days: 14
+
+  release:
+    name: 创建 Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: 生成校验和
+        working-directory: artifacts
+        run: |
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: 发布 Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          cat > notes.md <<'EOF'
+          ## 下载说明
+
+          | 平台 | 文件 |
+          | --- | --- |
+          | Windows x64 | `Stm32Flash-<版本>-win-x64.zip`（已附带 OpenOCD，解压即用） |
+          | Linux x64 | `Stm32Flash-<版本>-linux-x64.tar.gz` |
+          | macOS Intel | `Stm32Flash-<版本>-osx-x64.tar.gz` |
+          | macOS Apple Silicon | `Stm32Flash-<版本>-osx-arm64.tar.gz` |
+
+          均为自包含构建，目标机器**不需要**预装 .NET 运行时。
+
+          Windows 以外的平台没有附带 OpenOCD，首次启动后在界面右上角
+          **管理…** 里在线下载对应架构的版本即可；Linux 下使用 USB 调试器
+          通常还需要安装 udev 规则。
+
+          macOS 首次运行若被 Gatekeeper 拦下（构建未签名），解压后执行：
+          `xattr -dr com.apple.quarantine Stm32Flash`
+
+          校验和见 `SHA256SUMS.txt`。
+          EOF
+          gh release create "$GITHUB_REF_NAME" \
+            --title "v$version" \
+            --notes-file notes.md \
+            --verify-tag \
+            artifacts/*
