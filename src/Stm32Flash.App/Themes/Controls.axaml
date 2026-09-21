@@ -1,0 +1,182 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- 全局字体与字号 -->
+    <Style Selector="TextBlock">
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="SelectableTextBlock">
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+    </Style>
+
+    <!-- 窗口标题 -->
+    <Style Selector="TextBlock.title">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeTitle}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <!-- 卡片内的分组标题 -->
+    <Style Selector="TextBlock.section">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeSection}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Margin" Value="0,0,0,10" />
+    </Style>
+
+    <!-- 字段标签：右对齐的次要文字 -->
+    <Style Selector="TextBlock.label">
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="HorizontalAlignment" Value="Right" />
+        <Setter Property="Margin" Value="0,0,10,0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- 说明文字 -->
+    <Style Selector="TextBlock.hint">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <!-- 卡片容器 -->
+    <Style Selector="Border.card">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushSoft}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="13,11" />
+        <Setter Property="BoxShadow" Value="0 1 10 0 #0D1A2540" />
+    </Style>
+
+    <!-- 提示条 -->
+    <Style Selector="Border.notice">
+        <Setter Property="Background" Value="{DynamicResource WarningBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource WarningBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="10,6" />
+    </Style>
+
+    <Style Selector="Border.notice TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource WarningTextBrush}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+    </Style>
+
+    <!-- 输入控件统一圆角与字号 -->
+    <Style Selector="TextBox">
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="MinHeight" Value="28" />
+        <Setter Property="Padding" Value="8,4" />
+    </Style>
+
+    <Style Selector="ComboBox">
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="MinHeight" Value="28" />
+        <Setter Property="Padding" Value="8,3" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+
+    <Style Selector="Button">
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="MinHeight" Value="28" />
+        <Setter Property="Padding" Value="14,4" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+
+    <!-- 主要操作按钮：在 UniformGrid 里要撑满格子 -->
+    <Style Selector="Button.action">
+        <Setter Property="MinHeight" Value="34" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="Margin" Value="0,0,6,6" />
+    </Style>
+
+    <!-- 文字型按钮 -->
+    <Style Selector="Button.link">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+        <Setter Property="Padding" Value="6,2" />
+        <Setter Property="MinHeight" Value="22" />
+    </Style>
+
+    <Style Selector="Button.link:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+    </Style>
+
+    <!-- 状态栏上的版本号按钮：平时像一行普通文字，悬停才显出可点击 -->
+    <Style Selector="Button.statusbar">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+        <Setter Property="Padding" Value="8,2" />
+        <Setter Property="MinHeight" Value="20" />
+        <Setter Property="MinWidth" Value="0" />
+    </Style>
+
+    <Style Selector="Button.statusbar:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    </Style>
+
+    <Style Selector="CheckBox">
+        <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+        <Setter Property="MinHeight" Value="24" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+
+    <Style Selector="ProgressBar">
+        <Setter Property="Height" Value="3" />
+        <Setter Property="MinHeight" Value="3" />
+        <Setter Property="CornerRadius" Value="0" />
+    </Style>
+
+    <!-- 日志面板：终端观感 -->
+    <Style Selector="TextBox.log">
+        <Setter Property="Background" Value="{DynamicResource LogBackgroundBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource LogForegroundBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="FontFamily" Value="{DynamicResource MonoFontFamily}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+        <Setter Property="Padding" Value="12,10" />
+        <Setter Property="SelectionBrush" Value="#2F4365" />
+    </Style>
+
+    <!-- 只读日志框不要有悬停/聚焦的描边变化 -->
+    <Style Selector="TextBox.log /template/ Border#PART_BorderElement">
+        <Setter Property="Background" Value="{DynamicResource LogBackgroundBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
+    <!-- 列表 -->
+    <Style Selector="ListBox">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushSoft}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="4" />
+    </Style>
+
+    <Style Selector="ListBoxItem">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+        <Setter Property="Padding" Value="8,6" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="CornerRadius" Value="5" />
+    </Style>
+
+</Styles>

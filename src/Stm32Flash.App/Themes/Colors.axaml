@@ -1,0 +1,40 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+
+    <!--
+        设计约定：
+        · 正文 12、辅助 11、分组标题 12、窗口标题 15 —— 比默认小一号，信息密度更高
+        · 配合 FluentTheme 的 Compact 密度，控件高度约 26–28
+        · 只用一层浅描边，不用立体渐变
+    -->
+
+    <FontFamily x:Key="AppFontFamily">Inter, Microsoft YaHei UI, Segoe UI, Noto Sans CJK SC, PingFang SC, sans-serif</FontFamily>
+    <FontFamily x:Key="MonoFontFamily">Cascadia Mono, Consolas, DejaVu Sans Mono, Menlo, monospace</FontFamily>
+
+    <!-- 覆盖 Fluent 主题的默认字号，界面整体收紧一号 -->
+    <sys:Double x:Key="ControlContentThemeFontSize">12</sys:Double>
+    <sys:Double x:Key="FontSizeBody">12</sys:Double>
+    <sys:Double x:Key="FontSizeSmall">11</sys:Double>
+    <sys:Double x:Key="FontSizeSection">12</sys:Double>
+    <sys:Double x:Key="FontSizeTitle">15</sys:Double>
+
+    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#F7F8FA" />
+    <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="BorderBrushSoft" Color="#E3E6EB" />
+    <SolidColorBrush x:Key="BorderBrushStrong" Color="#CBD1D9" />
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#16191D" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#6B7280" />
+    <SolidColorBrush x:Key="TextTertiaryBrush" Color="#9AA1AC" />
+    <SolidColorBrush x:Key="AccentBrush" Color="#2563EB" />
+    <SolidColorBrush x:Key="AccentSoftBrush" Color="#EFF4FE" />
+    <SolidColorBrush x:Key="SuccessBrush" Color="#16A34A" />
+    <SolidColorBrush x:Key="DangerBrush" Color="#DC2626" />
+    <SolidColorBrush x:Key="WarningBackgroundBrush" Color="#FFF8E6" />
+    <SolidColorBrush x:Key="WarningBorderBrush" Color="#F5D48B" />
+    <SolidColorBrush x:Key="WarningTextBrush" Color="#8A5B00" />
+    <SolidColorBrush x:Key="SurfaceMutedBrush" Color="#F1F3F6" />
+    <SolidColorBrush x:Key="LogBackgroundBrush" Color="#14161A" />
+    <SolidColorBrush x:Key="LogForegroundBrush" Color="#C9D1D9" />
+
+</ResourceDictionary>
