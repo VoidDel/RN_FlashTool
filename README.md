@@ -121,3 +121,11 @@ src/Stm32Flash.App/
 | 配置 | `%APPDATA%\Stm32FlashTool\settings.json` | `~/.config/Stm32FlashTool/settings.json` |
 | 自定义芯片 | `%APPDATA%\Stm32FlashTool\chips\` | `~/.config/Stm32FlashTool/chips/` |
 | 下载的 OpenOCD | `%LOCALAPPDATA%\Stm32FlashTool\openocd\` | `~/.local/share/Stm32FlashTool/openocd/` |
+
+## 许可证
+
+本项目以 [MIT License](LICENSE) 发布。
+
+发行包内附带的 OpenOCD 为 xPack 构建，以 GPL-2.0-or-later 发布，
+程序通过启动独立进程的方式调用它，不与其链接。
+各组件的许可证与源码地址见 [第三方组件声明](THIRD-PARTY-NOTICES.md)。
