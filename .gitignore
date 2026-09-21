@@ -1,26 +1,10 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-.venv/
-venv/
-ENV/
-env/
-
-# PyInstaller
-build/
-dist/
-*.spec.bak
-*.manifest
-*.exe.manifest
-
-# 临时文件
-temp/
-*.log
-*.tmp
-nul
+# .NET 构建产物
+# 只忽略源码树下的，避免误伤已纳入版本管理的 openocd/bin/
+src/**/[Bb]in/
+src/**/[Oo]bj/
+*.user
+*.suo
+.vs/
 
 # IDE
 .vscode/
@@ -34,17 +18,17 @@ nul
 Thumbs.db
 desktop.ini
 
-# Node.js (Electron 版本)
-node_modules/
-package-lock.json
-
 # 打包输出
 *.zip
 *.7z
 *.tar.gz
 *.rar
 
-# 用户数据
+# 日志与临时文件
+*.log
+*.tmp
+
+# 用户固件
 *.bin
 *.elf
 *.hex
