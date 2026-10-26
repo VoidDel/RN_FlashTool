@@ -1,16 +1,13 @@
-# 图标文件说明
+# 图标
 
-请在此目录下放置以下图标文件：
+- `icon.svg`：图标源文件
+- `icon.png`：由 `icon.svg` 生成的 512×512 位图
 
-- `icon.png` - Linux和macOS应用图标 (推荐尺寸: 512x512px)
-- `icon.ico` - Windows应用图标
-- `icon.icns` - macOS应用图标
+程序实际使用的是根目录 `icons/` 下的各尺寸图标（含 Windows 的 `icon.ico` 与 macOS 的 `icon.icns`），
+改了 `icon.svg` 之后用 Tauri CLI 重新生成：
 
-可以使用在线工具将PNG图标转换为ICO和ICNS格式。
+```bash
+npx @tauri-apps/cli@2 icon assets/icon.svg -o icons
+```
 
-# 图标建议
-
-- 使用芯片或电路板相关的图标
-- 尺寸：至少128x128像素
-- 透明背景或纯色背景
-- 简洁的设计风格
+生成后可删掉 `icons/` 里的 `android/`、`ios/` 与 `Square*Logo.png` / `StoreLogo.png`，桌面版用不到。

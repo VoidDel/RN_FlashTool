@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "主窗口只需要调用自定义命令与接收 Channel 消息；文件对话框、打开目录都在 Rust 侧完成",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

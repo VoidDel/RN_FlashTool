@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RN FlashTool</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <!-- 顶栏 -->
+      <header class="topbar">
+        <div>
+          <div class="title">RN FlashTool</div>
+          <div class="hint">OpenOCD 驱动 · 芯片列表来自 chips/ 目录的 YAML 配置</div>
+        </div>
+        <div class="notices">
+          <button id="appUpdateNotice" class="notice" hidden></button>
+          <button id="openocdUpdateNotice" class="notice" hidden></button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <!-- 左栏：配置可滚动，操作区固定在底部 -->
+        <section class="left">
+          <div class="scroll">
+            <div class="card">
+              <div class="section">固件配置</div>
+              <div class="form">
+                <label class="label" for="firmwarePath">固件文件</label>
+                <div class="row">
+                  <input id="firmwarePath" class="grow" type="text" placeholder="选择 .elf / .hex / .bin 文件" spellcheck="false" />
+                  <button id="browseFirmware" data-busy-lock>浏览</button>
+                </div>
+
+                <!-- 扩展名认得出格式就只显示一行提示；认不出来才把下拉框放出来 -->
+                <div id="formatSummary" class="hint full"></div>
+                <label id="formatLabel" class="label" for="formatSelect" hidden>格式</label>
+                <select id="formatSelect" title="文件没有可识别的扩展名，需要自己指定格式" hidden>
+                  <option value="Elf">ELF</option>
+                  <option value="Bin">BIN</option>
+                  <option value="Ihex">Intel HEX</option>
+                  <option value="S19">Motorola S19</option>
+                </select>
+
+                <div class="checks full">
+                  <label class="check"><input id="fullErase" type="checkbox" />烧录前全片擦除</label>
+                  <label class="check"><input id="verifyAfterFlash" type="checkbox" />烧录后校验</label>
+                  <label class="check"><input id="runAfterFlash" type="checkbox" />烧录后运行</label>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="section">目标配置</div>
+              <div class="form">
+                <label class="label" for="interfaceSelect">编程器</label>
+                <select id="interfaceSelect"></select>
+
+                <label class="label" for="resetSelect">复位方式</label>
+                <select id="resetSelect">
+                  <option value="software">软件复位（SWDIO / SWCLK / GND 三线即可）</option>
+                  <option value="hardware">硬件复位（需连接 NRST）</option>
+                </select>
+
+                <label class="label" for="chipSelect">目标芯片</label>
+                <select id="chipSelect"></select>
+
+                <div id="targetSummary" class="hint full ellipsis"></div>
+                <div class="links full">
+                  <button id="reloadChips" class="link" data-busy-lock>重新加载</button>
+                  <button id="openChipFolder" class="link">打开自定义芯片目录</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section">操作</div>
+            <div class="action-grid">
+              <button id="flashButton" class="accent action" data-busy-lock>烧录固件</button>
+              <button id="verifyButton" class="action" data-busy-lock>验证固件</button>
+              <button id="readButton" class="action" data-busy-lock>读取固件</button>
+              <button id="resetButton" class="action" data-busy-lock>复位设备</button>
+            </div>
+            <div class="row">
+              <label class="label" for="timeoutInput">超时(秒)</label>
+              <input id="timeoutInput" type="number" min="5" max="3600" step="5" />
+              <span class="grow"></span>
+              <button id="cancelButton" disabled>取消操作</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 右栏：日志 -->
+        <section class="card log-card">
+          <div class="section">操作日志</div>
+          <pre id="log" class="log"></pre>
+          <div class="row end">
+            <button id="saveLog" disabled>保存日志</button>
+            <button id="clearLog">清除日志</button>
+          </div>
+        </section>
+      </main>
+
+      <div id="busyBar" class="progress indeterminate" hidden><span></span></div>
+
+      <footer class="statusbar">
+        <span id="status">就绪</span>
+        <!-- OpenOCD 版本与程序版本，点击分别打开版本管理 / 更新 -->
+        <div class="versions">
+          <button id="openocdStatus" class="statusbar-btn" data-busy-lock></button>
+          <span>·</span>
+          <button id="appVersion" class="statusbar-btn" title="点击检查程序更新" data-busy-lock></button>
+        </div>
+      </footer>
+    </div>
+
+    <!-- OpenOCD 版本管理 -->
+    <div id="managerDialog" class="backdrop" hidden>
+      <div class="dialog wide" role="dialog" aria-labelledby="managerTitle">
+        <div class="dialog-body">
+          <div class="manager">
+            <div class="card list-card">
+              <div class="section" id="managerTitle">本机已安装</div>
+              <div class="table installed">
+                <div class="head"><span>版本</span><span>来源</span><span>路径</span></div>
+                <div id="installedList" class="body"></div>
+              </div>
+              <div class="row" style="margin-top: 10px">
+                <button id="mgrRefresh" data-mgr-lock>重新扫描</button>
+                <button id="mgrActivate" class="accent" data-mgr-lock>设为当前</button>
+                <button id="mgrUninstall" data-mgr-lock>删除</button>
+                <button id="mgrBrowse" data-mgr-lock>手动指定…</button>
+                <button id="mgrOpenFolder" class="link">打开安装目录</button>
+              </div>
+            </div>
+
+            <div id="mgrActivePath" class="hint ellipsis"></div>
+
+            <div class="card list-card">
+              <div class="section-row">
+                <div class="section">在线可下载</div>
+                <div class="segmented" id="providerSwitch">
+                  <button data-provider="xpack" aria-pressed="true" data-mgr-lock>xPack OpenOCD（通用）</button>
+                  <button data-provider="espressif" aria-pressed="false" data-mgr-lock>Espressif openocd-esp32（ESP32 专用）</button>
+                </div>
+              </div>
+              <div class="table releases">
+                <div class="head"><span>版本</span><span>发布时间</span><span>大小</span><span>安装包</span></div>
+                <div id="releaseList" class="body"></div>
+              </div>
+              <div class="row" style="margin-top: 10px">
+                <button id="mgrFetch" data-mgr-lock>获取版本列表</button>
+                <button id="mgrInstall" class="accent" data-mgr-lock>下载并安装</button>
+                <span class="hint">下载后会按发布页公布的 SHA-256 校验</span>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="section">下载选项</div>
+              <div class="row">
+                <label class="label" for="mirrorInput">加速前缀</label>
+                <input
+                  id="mirrorInput"
+                  class="grow"
+                  type="text"
+                  placeholder="留空表示直连 GitHub"
+                  title="访问 GitHub 受限时可填写代理前缀，例如 https://ghfast.top/"
+                  spellcheck="false"
+                />
+                <label class="check" style="margin-left: 6px"><input id="mgrAutoCheck" type="checkbox" />启动时检查更新</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="dialog-footer">
+          <div id="mgrProgress" class="progress" hidden><span></span></div>
+          <div class="row">
+            <span id="mgrStatus" class="grow ellipsis">就绪</span>
+            <button id="mgrCancel" disabled>取消</button>
+            <button id="mgrClose">关闭</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 程序更新 -->
+    <div id="updateDialog" class="backdrop" hidden>
+      <div class="dialog medium" role="dialog" aria-labelledby="updateTitle">
+        <div class="dialog-body stack">
+          <div class="card">
+            <div class="section" id="updateTitle">版本</div>
+            <div class="kv">
+              <span class="label">当前版本</span><span id="updCurrent"></span>
+              <span class="label">最新版本</span><strong id="updLatest">—</strong>
+              <span class="label upd-has-release">安装包</span>
+              <span class="hint upd-has-release" id="updAsset"></span>
+            </div>
+          </div>
+          <div id="updBlockReason" class="notice-box" hidden></div>
+          <div class="card upd-has-release">
+            <div class="section">更新内容</div>
+            <div id="updNotes" class="notes"></div>
+          </div>
+          <label class="check"><input id="updAutoCheck" type="checkbox" />启动时自动检查程序更新</label>
+        </div>
+        <div class="dialog-footer">
+          <div id="updProgress" class="progress" hidden><span></span></div>
+          <div class="row">
+            <span id="updStatus" class="grow ellipsis"></span>
+            <button id="updCheck" data-upd-lock>检查更新</button>
+            <button id="updCancel" disabled>取消</button>
+            <button id="updInstall" class="accent" data-upd-lock>下载并安装</button>
+            <button id="updOpenPage">前往下载页</button>
+            <button id="updClose" data-upd-lock>关闭</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 消息框、地址输入框由脚本按需创建，挂在这里 -->
+    <div id="overlays"></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
