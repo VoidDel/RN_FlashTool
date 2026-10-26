@@ -2,25 +2,39 @@
 
 本项目自身以 [MIT License](LICENSE) 发布。以下组件由各自的许可证约束。
 
-## 运行时依赖（随发行包一起分发）
+## 编译进可执行文件的依赖
+
+主要的 Rust 依赖如下，完整清单见 `Cargo.lock`（可用 `cargo tree` 查看）。
 
 | 组件 | 许可证 | 来源 |
 | --- | --- | --- |
-| Avalonia | MIT | <https://github.com/AvaloniaUI/Avalonia> |
-| YamlDotNet | MIT | <https://github.com/aaubry/YamlDotNet> |
-| .NET Runtime | MIT | <https://github.com/dotnet/runtime> |
-| Inter 字体 | SIL Open Font License 1.1 | <https://github.com/rsms/inter> |
+| Tauri（含 tauri-plugin-dialog / tauri-plugin-opener） | MIT 或 Apache-2.0 | <https://github.com/tauri-apps/tauri> |
+| Tokio / tokio-util | MIT | <https://github.com/tokio-rs/tokio> |
+| reqwest | MIT 或 Apache-2.0 | <https://github.com/seanmonstar/reqwest> |
+| rustls | MIT、Apache-2.0 或 ISC | <https://github.com/rustls/rustls> |
+| serde / serde_json | MIT 或 Apache-2.0 | <https://github.com/serde-rs/serde> |
+| serde_yaml | MIT 或 Apache-2.0 | <https://github.com/dtolnay/serde-yaml> |
+| regex | MIT 或 Apache-2.0 | <https://github.com/rust-lang/regex> |
+| chrono | MIT 或 Apache-2.0 | <https://github.com/chronotope/chrono> |
+| sha2 | MIT 或 Apache-2.0 | <https://github.com/RustCrypto/hashes> |
+| zip | MIT | <https://github.com/zip-rs/zip2> |
+| tar / flate2 | MIT 或 Apache-2.0 | <https://github.com/alexcrichton/tar-rs> |
+
+界面运行在系统自带的 WebView 上（Windows 的 WebView2、macOS 的 WKWebView、Linux 的 WebKitGTK），
+这些不随发行包分发。
 
 ## OpenOCD
 
 仓库内的 `openocd/` 目录，以及程序在「OpenOCD 版本管理」中下载安装的版本，
-均为 [xPack OpenOCD](https://github.com/xpack-dev-tools/openocd-xpack) 构建，
-以 **GPL-2.0-or-later** 发布。
+为 [xPack OpenOCD](https://github.com/xpack-dev-tools/openocd-xpack) 或
+[Espressif openocd-esp32](https://github.com/espressif/openocd-esp32) 构建，
+均以 **GPL-2.0-or-later** 发布。
 
 - 完整的许可证文本位于 `openocd/distro-info/licenses/`，涵盖 OpenOCD 本身
   及其依赖（libusb、libftdi、hidapi、libiconv 等）
 - OpenOCD 上游源码：<https://sourceforge.net/p/openocd/code/>
 - xPack 打包脚本与源码：<https://github.com/xpack-dev-tools/openocd-xpack>
+- Espressif 分支源码：<https://github.com/espressif/openocd-esp32>
 
 ### 与本项目的关系
 
