@@ -1,10 +1,7 @@
-# .NET 构建产物
-# 只忽略源码树下的，避免误伤已纳入版本管理的 openocd/bin/
-src/**/[Bb]in/
-src/**/[Oo]bj/
-*.user
-*.suo
-.vs/
+# Rust / Tauri 构建产物
+/target/
+# tauri-build 生成的权限 schema
+/gen/
 
 # IDE
 .vscode/
@@ -19,6 +16,8 @@ Thumbs.db
 desktop.ini
 
 # 打包输出
+/dist/
+/artifacts/
 *.zip
 *.7z
 *.tar.gz

@@ -12,39 +12,41 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: 构建校验
-    runs-on: ubuntu-latest
+  check:
+    name: 构建校验 (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # 三个平台各自编一遍：平台相关代码（进程标志、权限位、对话框）只有在对应系统上才会被编译到
+        os: [ubuntu-22.04, windows-latest, macos-latest]
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-dotnet@v4
+      - name: 安装 Linux 依赖
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libxdo-dev libayatana-appindicator3-dev
+
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          dotnet-version: '10.0.x'
+          components: clippy, rustfmt
 
-      - name: 还原依赖
-        run: dotnet restore RN_FlashTool.sln
+      - uses: Swatinem/rust-cache@v2
 
-      - name: 构建
-        run: dotnet build RN_FlashTool.sln -c Release --no-restore
+      - name: 格式检查
+        if: runner.os == 'Linux'
+        run: cargo fmt --check
 
-      # 目标框架是 net10.0，三个平台都应该能发布；任一失败说明引入了平台相关代码
-      - name: 交叉发布检查
-        run: |
-          for rid in win-x64 linux-x64 osx-arm64; do
-            echo "::group::$rid"
-            dotnet publish src/RnFlashTool.App -c Release -r "$rid" \
-              --self-contained false -o "/tmp/check-$rid"
-            echo "::endgroup::"
-          done
+      - name: Clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
 
-      # 芯片列表是 YAML 驱动的，漏拷到输出目录会导致程序启动后一个芯片都没有
-      - name: 校验芯片配置已输出
-        run: |
-          count=$(ls /tmp/check-linux-x64/chips/*.yaml 2>/dev/null | wc -l)
-          echo "输出目录中的芯片配置: $count 个"
-          if [ "$count" -eq 0 ]; then
-            echo "::error::chips/ 未被复制到发布输出，程序将没有任何可选芯片"
-            exit 1
-          fi
+      # 单元测试里会把 chips/ 下的全部 YAML 解析一遍，写错字段在这里就能发现
+      - name: 测试
+        run: cargo test --locked
+
+      - name: 前端语法检查
+        if: runner.os == 'Linux'
+        run: node --check ui/app.js
