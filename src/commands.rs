@@ -122,6 +122,7 @@ pub struct Bootstrap {
     chips: ChipList,
     /// 不能就地升级的原因；为空表示可以。
     self_update_block_reason: Option<String>,
+    install_kind: app_update::InstallKind,
 }
 
 #[tauri::command]
@@ -133,6 +134,7 @@ pub fn bootstrap(state: State<'_, AppState>) -> Bootstrap {
         settings,
         interfaces: &INTERFACES,
         self_update_block_reason: app_update::block_reason(),
+        install_kind: app_update::install_kind(),
     }
 }
 

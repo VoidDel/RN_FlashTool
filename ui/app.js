@@ -23,6 +23,7 @@ const state = {
   lastReadSize: '0x10000',
   appUpdate: null,
   blockReason: null,
+  installKind: 'portable',
 };
 
 // ---------------------------------------------------------------- 工具
@@ -926,9 +927,13 @@ const updater = {
     const release = state.appUpdate;
     if (!release || this.busy) return;
 
+    const after =
+      state.installKind === 'windowsInstaller'
+        ? '下载完成后会启动安装程序并关闭本程序，按提示完成安装即可。'
+        : '下载完成后程序会自动关闭并重启。';
     const confirmed = await confirmDialog(
       '更新程序',
-      `将从 ${state.version} 更新到 ${release.version}。\n\n下载完成后程序会自动关闭并重启，请先结束正在进行的烧录操作。`,
+      `将从 ${state.version} 更新到 ${release.version}。\n\n${after}请先结束正在进行的烧录操作。`,
     );
     if (!confirmed) return;
 
@@ -1063,6 +1068,7 @@ async function init() {
   state.settings = boot.settings;
   state.interfaces = boot.interfaces;
   state.blockReason = boot.selfUpdateBlockReason;
+  state.installKind = boot.installKind;
 
   const s = boot.settings;
   $('appVersion').textContent = `v${boot.version}`;

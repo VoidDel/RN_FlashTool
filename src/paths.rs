@@ -48,15 +48,31 @@ pub fn ensure_dir(path: &Path) -> Result<PathBuf, String> {
     Ok(path.to_path_buf())
 }
 
-/// 程序目录及其若干级父目录。开发时可执行文件在 `target/debug/` 下，
-/// 往上找才能摸到仓库根部的 `chips/` 与 `openocd/`。
-pub fn app_roots() -> impl Iterator<Item = &'static Path> {
-    APP_DIR.ancestors().take(6)
+/// 安装包里的产品名，决定 Linux 下资源目录的名字，与 tauri.conf.json 的 productName 一致。
+const PRODUCT_NAME: &str = "RN FlashTool";
+
+/// 可能放着 `chips/`、`openocd/` 的目录，按优先级排列：
+/// - 程序目录：便携包与 Windows 安装包都把资源放在可执行文件旁边
+/// - macOS 的 .app：资源在 `Contents/Resources`，可执行文件在 `Contents/MacOS`
+/// - Linux 的 deb / rpm / AppImage：可执行文件在 `usr/bin`，资源在 `usr/lib/<产品名>`
+/// - 程序目录的若干级父目录：开发时可执行文件在 `target/debug/` 下，往上才能摸到仓库根部
+pub fn resource_roots() -> Vec<PathBuf> {
+    let mut roots = vec![APP_DIR.clone()];
+    if let Some(parent) = APP_DIR.parent() {
+        roots.push(parent.join("Resources"));
+        roots.push(parent.join("lib").join(PRODUCT_NAME));
+    }
+    roots.extend(APP_DIR.ancestors().skip(1).take(5).map(Path::to_path_buf));
+    roots
 }
 
-/// 内置芯片定义目录：优先取程序目录下的 `chips/`，开发时退回仓库根部的。
+/// 内置芯片定义目录，找不到时退回程序目录下的 `chips/`（只用于提示）。
 pub fn builtin_chips_dir() -> PathBuf {
-    app_roots().map(|root| root.join("chips")).find(|dir| dir.is_dir()).unwrap_or_else(|| APP_DIR.join("chips"))
+    resource_roots()
+        .into_iter()
+        .map(|root| root.join("chips"))
+        .find(|dir| dir.is_dir())
+        .unwrap_or_else(|| APP_DIR.join("chips"))
 }
 
 /// 与 .NET 的 `SpecialFolder.ApplicationData` 对应。

@@ -1,7 +1,10 @@
 //! 从本仓库的 GitHub Releases 自升级。
 //!
-//! 正在运行的可执行文件没法覆盖自己，所以实际替换交给一个外部脚本：
-//! 它等本进程退出后把暂存目录覆盖到程序目录，再重新拉起程序。
+//! 按安装方式分三种：
+//! - 便携包：正在运行的可执行文件没法覆盖自己，所以实际替换交给一个外部脚本，
+//!   它等本进程退出后把暂存目录覆盖到程序目录，再重新拉起程序；
+//! - Windows 安装包：下载新版 setup.exe 并启动它，由安装程序完成覆盖；
+//! - macOS .app、Linux deb / rpm / AppImage：文件布局归系统管，不自己动，只给出下载页。
 
 use std::path::{Path, PathBuf};
 
@@ -39,7 +42,39 @@ pub fn current_version() -> &'static str {
     option_env!("RN_FLASHTOOL_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))
 }
 
-/// 当前环境不能就地替换的原因；能替换时返回 `None`，界面据此决定给“下载并安装”还是“前往下载页”。
+/// 程序是怎么装到这台机器上的，决定了怎么升级。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum InstallKind {
+    /// 解压即用的 zip / tar.gz。
+    Portable,
+    /// Windows 的 NSIS 安装包，安装目录里会有 uninstall.exe。
+    WindowsInstaller,
+    /// macOS 的 .app（来自 .dmg）。
+    MacApp,
+    /// Linux 的 AppImage，运行时有 APPIMAGE 环境变量。
+    AppImage,
+    /// Linux 的 deb / rpm，装在 /usr 下。
+    SystemPackage,
+}
+
+pub fn install_kind() -> InstallKind {
+    let directory = paths::display(&paths::APP_DIR).replace('\\', "/");
+
+    if cfg!(target_os = "linux") && std::env::var_os("APPIMAGE").is_some() {
+        InstallKind::AppImage
+    } else if cfg!(target_os = "linux") && directory.starts_with("/usr/") {
+        InstallKind::SystemPackage
+    } else if cfg!(target_os = "macos") && directory.contains(".app/Contents/MacOS") {
+        InstallKind::MacApp
+    } else if cfg!(windows) && paths::APP_DIR.join("uninstall.exe").is_file() {
+        InstallKind::WindowsInstaller
+    } else {
+        InstallKind::Portable
+    }
+}
+
+/// 当前环境不能自动升级的原因；能升级时返回 `None`，界面据此决定给“下载并安装”还是“前往下载页”。
 pub fn block_reason() -> Option<String> {
     let directory = paths::APP_DIR.as_path();
 
@@ -47,6 +82,17 @@ pub fn block_reason() -> Option<String> {
     let text = paths::display(directory).replace('\\', "/").to_lowercase();
     if text.contains("/target/debug") || text.contains("/target/release") {
         return Some("当前是从构建输出目录运行的开发版本，不支持自动升级。".into());
+    }
+
+    match install_kind() {
+        // 安装程序自己负责写文件。
+        InstallKind::WindowsInstaller => return None,
+        InstallKind::MacApp => return Some("请下载新版 .dmg，把程序拖进“应用程序”覆盖旧版即可，设置会保留。".into()),
+        InstallKind::AppImage => return Some("请下载新版 AppImage 替换当前文件，设置会保留。".into()),
+        InstallKind::SystemPackage => {
+            return Some("当前版本由系统包管理器安装，请下载新版 deb / rpm 安装包升级，设置会保留。".into());
+        }
+        InstallKind::Portable => {}
     }
 
     let probe = directory.join(format!(".update-probe-{}", std::process::id()));
@@ -59,15 +105,16 @@ pub fn block_reason() -> Option<String> {
     }
 }
 
-/// 发行包命名规则见 .github/workflows/release.yml：`RnFlashTool-<版本>-<RID>.zip|tar.gz`。
-fn asset_suffix() -> String {
+/// 发行包命名规则见 .github/workflows/release.yml：
+/// 便携包 `RnFlashTool-<版本>-<RID>.zip|tar.gz`，Windows 安装包 `RnFlashTool-<版本>-<RID>-setup.exe`。
+fn asset_suffix(kind: InstallKind) -> String {
     let arch = match std::env::consts::ARCH {
         "aarch64" => "arm64",
         "x86" => "x86",
         _ => "x64",
     };
     if cfg!(windows) {
-        format!("win-{arch}.zip")
+        if kind == InstallKind::WindowsInstaller { format!("win-{arch}-setup.exe") } else { format!("win-{arch}.zip") }
     } else if cfg!(target_os = "macos") {
         format!("osx-{arch}.tar.gz")
     } else {
@@ -77,7 +124,7 @@ fn asset_suffix() -> String {
 
 /// 查询最新版本；没有比当前更新的版本时返回 `None`。预发布版本不参与。
 pub async fn check(github: &GitHub) -> Result<Option<AppRelease>, String> {
-    let suffix = asset_suffix();
+    let suffix = asset_suffix(install_kind());
     let assets = github.releases(REPOSITORY, 10, |name| name.ends_with(&suffix)).await?;
 
     Ok(assets
@@ -100,7 +147,8 @@ pub async fn check(github: &GitHub) -> Result<Option<AppRelease>, String> {
         .max_by(|a, b| version::compare(Some(&a.version), Some(&b.version))))
 }
 
-/// 下载、校验并解压到暂存目录，返回暂存目录。此时尚未改动程序目录，随时可以放弃。
+/// 下载并校验。便携包解压到暂存目录并返回它；Windows 安装包直接返回下载好的 setup.exe。
+/// 此时尚未改动程序目录，随时可以放弃。
 pub async fn prepare(
     github: &GitHub,
     release: &AppRelease,
@@ -122,6 +170,16 @@ pub async fn prepare(
         checksum_url: release.checksum_url.as_deref(),
         mirror,
     };
+
+    if install_kind() == InstallKind::WindowsInstaller {
+        let result = github.download_verified(&spec, &archive_path, true, progress, cancel).await;
+        if result.is_err() {
+            let _ = std::fs::remove_file(&archive_path);
+        }
+        result?;
+        progress(Progress::new(format!("{} 安装程序已就绪", release.version), Some(100.0)));
+        return Ok(archive_path);
+    }
 
     let result = async {
         // 自升级会直接运行下载来的程序，拿不到校验和就不装。
@@ -155,8 +213,15 @@ pub async fn prepare(
     result
 }
 
-/// 启动外部脚本：等本进程退出后用暂存目录覆盖程序目录，再重新拉起程序。调用方随后必须立即退出。
-pub fn launch_updater(staging: &Path) -> Result<(), String> {
+/// 启动升级：Windows 安装包直接运行新版 setup.exe；便携包启动外部脚本，
+/// 等本进程退出后用暂存目录覆盖程序目录，再重新拉起程序。调用方随后必须立即退出。
+pub fn launch_updater(prepared: &Path) -> Result<(), String> {
+    if install_kind() == InstallKind::WindowsInstaller {
+        // 安装程序发现本程序还在运行会提示关闭，所以这边启动它之后马上退出。
+        return std::process::Command::new(prepared).spawn().map(drop).map_err(|e| format!("无法启动安装程序: {e}"));
+    }
+
+    let staging = prepared;
     let app_dir = paths::APP_DIR.as_path();
     let executable = std::env::current_exe().unwrap_or_else(|_| app_dir.join(EXECUTABLE_NAME));
     let temp = paths::ensure_dir(&paths::temp_dir())?;

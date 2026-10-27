@@ -90,8 +90,8 @@ pub async fn discover(custom_path: &str) -> Vec<Installation> {
         }
     }
 
-    // 2) 随程序分发的 openocd 目录（兼容开发时 target/debug 的布局）
-    for root in paths::app_roots() {
+    // 2) 随程序分发的 openocd 目录（便携包、安装包的资源目录，以及开发时的仓库根部）
+    for root in paths::resource_roots() {
         candidates.push((root.join("openocd").join("bin").join(EXECUTABLE_NAME), OpenOcdSource::Bundled, None));
     }
 
