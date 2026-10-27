@@ -42,15 +42,30 @@ sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libxdo-dev liba
 
 ## 打包
 
+安装包用 Tauri CLI 生成（需要 Node.js，`npx` 会自动下载 CLI）：
+
 ```bash
-cargo build --release
+npx @tauri-apps/cli@2 build --bundles nsis               # Windows：setup.exe
+npx @tauri-apps/cli@2 build --bundles dmg                # macOS：.dmg
+npx @tauri-apps/cli@2 build --bundles deb,rpm,appimage   # Linux
 ```
 
-产物在 `target/release/RnFlashTool[.exe]`。发行包就是把它和 `chips/`（Windows 再加上 `openocd/`）
-放在同一个目录里压缩，详见 [.github/workflows/release.yml](.github/workflows/release.yml)；
-推送 `v*` 标签会自动构建四个平台的包并发布 Release。
+产物在 `target/release/bundle/` 下。`chips/` 作为资源打进所有安装包，
+`openocd/` 只打进 Windows 安装包（见 `tauri.windows.conf.json`），其它平台在程序里在线下载。
 
-运行时依赖系统 WebView：Windows 10 / 11 自带 WebView2；Linux 需要 `libwebkit2gtk-4.1`；macOS 自带。
+便携包就是把 `target/release/RnFlashTool[.exe]` 和 `chips/`（Windows 再加上 `openocd/`）放在同一个目录里压缩。
+
+推送 `v*` 标签会自动构建全部安装包与便携包并发布 Release，详见
+[.github/workflows/release.yml](.github/workflows/release.yml)：
+
+| 平台 | 安装包 | 便携包 |
+| --- | --- | --- |
+| Windows x64 | `-win-x64-setup.exe` | `-win-x64.zip` |
+| macOS | `-osx-arm64.dmg`、`-osx-x64.dmg` | `-osx-arm64.tar.gz`、`-osx-x64.tar.gz` |
+| Linux x64 | `-linux-x64.deb`、`.rpm`、`.AppImage` | `-linux-x64.tar.gz` |
+
+运行时依赖系统 WebView：Windows 10 / 11 自带 WebView2（安装包缺失时会自动补装）；
+Linux 需要 `libwebkit2gtk-4.1`（deb / rpm 会自动拉取）；macOS 自带。安装包均未签名。
 
 ## OpenOCD
 
@@ -77,14 +92,21 @@ cargo build --release
 
 点击状态栏右下角的版本号（如 `v3.0.0`）打开更新窗口，可检查并安装新版本。
 
-更新流程：下载对应平台的发行包并校验 SHA-256 → 解压到暂存目录 → 启动一个外部脚本 → 程序退出 →
-脚本用暂存目录覆盖程序目录并重新拉起程序。正在运行的可执行文件无法覆盖自己，所以必须绕这一圈。
+升级方式取决于安装方式，下载的文件都会先校验 SHA-256：
+
+| 安装方式 | 升级方式 |
+| --- | --- |
+| 便携包 | 下载新版便携包 → 解压到暂存目录 → 外部脚本等程序退出后覆盖程序目录并重新拉起 |
+| Windows 安装包 | 下载新版 `setup.exe` 并启动它，程序随即退出，由安装程序完成覆盖 |
+| .dmg / deb / rpm / AppImage | 文件归系统管，不自动替换，只给出「前往下载页」 |
+
+便携包需要绕外部脚本这一圈，是因为正在运行的可执行文件无法覆盖自己。
 覆盖失败时程序仍会被重新拉起，原因写在 `<LocalAppData>/RN_FlashTool/temp/update.log`。
 
-以下两种情况不提供自动替换，只会给出「前往下载页」：
+以下两种情况也不提供自动替换，只会给出「前往下载页」：
 
 - 从构建输出目录运行（`cargo run` 启动的开发版本）
-- 程序目录不可写（例如放在 `Program Files` 且未以管理员身份运行）
+- 便携包放在了不可写的目录（例如 `Program Files` 且未以管理员身份运行）
 
 C# 版（2.x）可以直接通过自身的更新功能升级到 3.x，设置、自定义芯片与已下载的 OpenOCD 都会保留。
 

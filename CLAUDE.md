@@ -26,7 +26,11 @@ node --check ui/app.js                      # 前端没有构建步骤，CI 只�
 ```
 
 `ui/` 在编译期嵌进可执行文件（`tauri.conf.json` 的 `frontendDist`），改了界面要重新编译。
-`tauri` 开启了 `custom-protocol` 特性，所以直接 `cargo build` 就是可分发的产物，不需要 tauri-cli。
+`tauri` 开启了 `custom-protocol` 特性，所以直接 `cargo build` 就是可分发的便携版，不需要 tauri-cli。
+
+安装包用 `npx @tauri-apps/cli@2 build --bundles <nsis|dmg|deb,rpm,appimage>` 生成。
+资源：`tauri.conf.json` 打包 `chips/`；`tauri.windows.conf.json` 额外打包 `openocd/`（与前者合并）。
+**资源映射必须用目录形式（`"openocd/": "openocd/"`）**，写成 `openocd/**/*` 会把整棵目录拍平。
 
 ## Architecture
 
@@ -58,7 +62,7 @@ Rust 侧负责一切系统交互，前端只管状态与展示。前端通过 `w
 
 | 用途 | 位置 |
 | --- | --- |
-| 内置芯片定义 | `<程序目录>/chips/`，开发时向上找到仓库根部的 `chips/` |
+| 内置芯片定义 | `paths::resource_roots()` 下的 `chips/`：程序目录（便携包、Windows 安装包）、`../Resources`（macOS .app）、`../lib/RN FlashTool`（deb / rpm / AppImage），开发时向上找到仓库根部 |
 | 用户芯片定义（同 id 覆盖内置） | `<AppData>/RN_FlashTool/chips/` |
 | 配置 | `<AppData>/RN_FlashTool/settings.json` |
 | 下载的 OpenOCD | `<LocalAppData>/RN_FlashTool/openocd/<版本>/` |
@@ -99,8 +103,10 @@ Rust 侧负责一切系统交互，前端只管状态与展示。前端通过 `w
 - **下载校验**：期望的 SHA-256 取自直连 api.github.com 的 `digest` 字段，镜像（加速前缀）改不了它；
   没有 `digest` 时从同一 Release 的校验和文件取（也直连 GitHub）。自升级拿不到校验和就拒绝安装
 - **settings.json 字段名是 PascalCase**，与 C# 版一致，旧版写下的文件可以原样读；时间戳解析失败当作没检查过
-- **可执行文件名保持 `RnFlashTool(.exe)`**，发行包名保持 `RnFlashTool-<版本>-<RID>`：
-  C# 2.x 的自升级按这两个名字找包、校验、重启，改了就没法从旧版直接升上来
+- **可执行文件名保持 `RnFlashTool(.exe)`**（`tauri.conf.json` 的 `mainBinaryName`），
+  发行包名保持 `RnFlashTool-<版本>-<RID>`：C# 2.x 的自升级按这两个名字找包、校验、重启，改了就没法从旧版直接升上来
+- 自升级按 `app_update::install_kind()` 分流：便携包走替换脚本；Windows 安装包（目录里有 `uninstall.exe`）
+  下载 `-setup.exe` 并启动；.app / deb / rpm / AppImage 只给下载页。`-setup.exe` 这个后缀是识别依据，发布时不能改
 - 版本号：发布流水线用环境变量 `RN_FLASHTOOL_VERSION` 注入标签版本，本地构建取 Cargo.toml
 - 自升级脚本：Windows 是 PowerShell（写入时带 BOM，否则中文路径会乱码），覆盖失败也会重新拉起程序，
   原因写进 `temp/update.log`

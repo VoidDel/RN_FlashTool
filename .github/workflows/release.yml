@@ -22,19 +22,23 @@ jobs:
             os: windows-latest
             target: x86_64-pc-windows-msvc
             archive: zip
+            bundles: nsis
           # 用较老的发行版构建，产物对 glibc 的要求更低
           - rid: linux-x64
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             archive: tar.gz
+            bundles: deb,rpm,appimage
           - rid: osx-x64
             os: macos-latest
             target: x86_64-apple-darwin
             archive: tar.gz
+            bundles: dmg
           - rid: osx-arm64
             os: macos-latest
             target: aarch64-apple-darwin
             archive: tar.gz
+            bundles: dmg
 
     defaults:
       run:
@@ -47,11 +51,15 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libxdo-dev libayatana-appindicator3-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libxdo-dev libayatana-appindicator3-dev libfuse2 rpm
 
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -62,21 +70,34 @@ jobs:
         run: |
           if [ "$GITHUB_REF_TYPE" = "tag" ]; then
             version="${GITHUB_REF_NAME#v}"
+            bundle_version="$version"
             label="$version"
           else
-            # artifact 名字里不能带 '+'，手动触发时改用短 SHA 区分
+            # artifact 名字里不能带 '+'，手动触发时改用短 SHA 区分；
+            # rpm 的版本号不允许 '-'，安装包统一写 0.0.0
             version="0.0.0-dev"
+            bundle_version="0.0.0"
             label="dev-${GITHUB_SHA::7}"
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "bundle_version=$bundle_version" >> "$GITHUB_OUTPUT"
+          echo "label=$label" >> "$GITHUB_OUTPUT"
           echo "name=RnFlashTool-$label-${{ matrix.rid }}" >> "$GITHUB_OUTPUT"
           echo "版本号: $version（包名: $label）"
 
-      # 程序通过 RN_FLASHTOOL_VERSION 读到标签上的版本号，自升级靠它判断新旧
-      - name: 构建
+      # 程序通过 RN_FLASHTOOL_VERSION 读到标签上的版本号，自升级靠它判断新旧；
+      # 安装包里的版本号由 --config 覆盖，不依赖 Cargo.toml 是否已经改过
+      - name: 构建并打安装包
         env:
           RN_FLASHTOOL_VERSION: ${{ steps.meta.outputs.version }}
-        run: cargo build --release --locked --target ${{ matrix.target }}
+          # linuxdeploy 本身是 AppImage，CI 里没有 FUSE，解开再跑
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: >
+          npx --yes @tauri-apps/cli@2 build --ci
+          --target ${{ matrix.target }}
+          --bundles ${{ matrix.bundles }}
+          --config '{"version":"${{ steps.meta.outputs.bundle_version }}"}'
+          -- --locked
 
       # 发行包是“解压即用”的目录，自升级也是整个目录覆盖，所以不用安装器。
       # 可执行文件名保持 RnFlashTool：C# 版 2.x 的自升级会检查它，名字不变才能直接升上来。
@@ -98,7 +119,7 @@ jobs:
         if: matrix.rid == 'win-x64'
         run: cp -r openocd dist/${{ matrix.rid }}/openocd
 
-      - name: 压缩
+      - name: 压缩便携包
         run: |
           mkdir -p artifacts
           cd dist/${{ matrix.rid }}
@@ -107,7 +128,23 @@ jobs:
           else
             tar -czf "../../artifacts/${{ steps.meta.outputs.name }}.tar.gz" .
           fi
-          cd ../..
+
+      # Tauri 产出的文件名带空格且各平台写法不一，统一改成 RnFlashTool-<版本>-<RID>.<扩展名>。
+      # Windows 安装包的 “-setup.exe” 后缀是程序自升级识别安装版的依据，不要改。
+      - name: 收集安装包
+        run: |
+          bundle="target/${{ matrix.target }}/release/bundle"
+          name="${{ steps.meta.outputs.name }}"
+          case "${{ matrix.rid }}" in
+            win-*)
+              cp "$bundle"/nsis/*-setup.exe "artifacts/$name-setup.exe" ;;
+            linux-*)
+              cp "$bundle"/deb/*.deb "artifacts/$name.deb"
+              cp "$bundle"/rpm/*.rpm "artifacts/$name.rpm"
+              cp "$bundle"/appimage/*.AppImage "artifacts/$name.AppImage" ;;
+            osx-*)
+              cp "$bundle"/dmg/*.dmg "artifacts/$name.dmg" ;;
+          esac
           ls -lh artifacts/
 
       - uses: actions/upload-artifact@v4
@@ -145,22 +182,25 @@ jobs:
           cat > notes.md <<'EOF'
           ## 下载说明
 
-          | 平台 | 文件 |
-          | --- | --- |
-          | Windows x64 | `RnFlashTool-<版本>-win-x64.zip`（已附带 OpenOCD，解压即用） |
-          | Linux x64 | `RnFlashTool-<版本>-linux-x64.tar.gz` |
-          | macOS Intel | `RnFlashTool-<版本>-osx-x64.tar.gz` |
-          | macOS Apple Silicon | `RnFlashTool-<版本>-osx-arm64.tar.gz` |
+          | 平台 | 安装包 | 便携包（解压即用） |
+          | --- | --- | --- |
+          | Windows x64 | `RnFlashTool-<版本>-win-x64-setup.exe` | `RnFlashTool-<版本>-win-x64.zip` |
+          | macOS Apple Silicon | `RnFlashTool-<版本>-osx-arm64.dmg` | `RnFlashTool-<版本>-osx-arm64.tar.gz` |
+          | macOS Intel | `RnFlashTool-<版本>-osx-x64.dmg` | `RnFlashTool-<版本>-osx-x64.tar.gz` |
+          | Linux x64 | `.deb`（Debian / Ubuntu）、`.rpm`（Fedora / openSUSE）、`.AppImage`（通用） | `RnFlashTool-<版本>-linux-x64.tar.gz` |
 
-          界面基于系统自带的 WebView：
-          - Windows 10 / 11 已内置 WebView2，无需另装
-          - Linux 需要 `libwebkit2gtk-4.1`（Ubuntu 22.04+ / Debian 12+ 可直接 `apt install libwebkit2gtk-4.1-0`）
+          - Windows 的安装包与便携包都附带 OpenOCD；安装包装在当前用户目录下，不需要管理员权限
+          - 程序内的“检查更新”：Windows 安装版与便携包可以一键升级；
+            .dmg / deb / rpm / AppImage 会引导到本页面下载新版
+          - 界面基于系统自带的 WebView：Windows 10 / 11 已内置 WebView2（安装包缺失时会自动补装）；
+            Linux 的 deb / rpm 会自动拉取 `libwebkit2gtk-4.1` 依赖，便携包需自行安装
 
           Windows 以外的平台没有附带 OpenOCD，首次启动后点击状态栏上的 OpenOCD
           在线下载对应架构的版本即可；Linux 下使用 USB 调试器通常还需要安装 udev 规则。
 
-          macOS 首次运行若被 Gatekeeper 拦下（构建未签名），解压后执行：
-          `xattr -dr com.apple.quarantine RnFlashTool`
+          安装包均未签名：Windows 可能弹出 SmartScreen 提示，点“更多信息 → 仍要运行”；
+          macOS 若提示“已损坏”或“无法验证开发者”，把程序拖进“应用程序”后执行：
+          `xattr -dr com.apple.quarantine "/Applications/RN FlashTool.app"`
 
           校验和见 `SHA256SUMS.txt`。
           EOF
